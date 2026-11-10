@@ -1,10 +1,20 @@
 # Utilisé via DBT_PROFILES_DIR pointant sur ce dossier.
+# Deux cibles, les mêmes modèles :
+#   local      DuckDB, données simulées, aucun compte ni crédit (démo, développement, CI)
+#   snowflake  l'entrepôt du projet (compte de formation, puis compte du restaurant)
 # Secrets uniquement via variables d'environnement (jamais en dur).
-# Authentification par paire de clés (utilisateur de service ATTABOY_PIPELINE_SVC).
 attaboy:
-  target: dev
+  target: "{{ env_var('ATTABOY_DBT_TARGET', 'snowflake') }}"
   outputs:
-    dev:
+    local:
+      type: duckdb
+      path: "{{ env_var('ATTABOY_LOCAL_DB', '../local/attaboy_demo.duckdb') }}"
+      schema: analytics
+      threads: 4
+      settings:
+        TimeZone: UTC
+
+    snowflake:
       type: snowflake
       account: "{{ env_var('ATTABOY_SF_ACCOUNT') }}"
       user: "{{ env_var('ATTABOY_SF_USER') }}"

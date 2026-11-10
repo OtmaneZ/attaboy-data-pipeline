@@ -1,0 +1,15 @@
+version: 2
+
+# Règles métier vérifiées à chaque exécution. La description est reprise telle quelle
+# dans l'onglet « Fiabilité » du cockpit : elle doit être lisible par le propriétaire.
+data_tests:
+  - name: assert_order_total_reconciles
+    description: Le total de chaque commande recalculé (brut − rabais + taxes) retombe sur celui de la caisse, au cent près.
+  - name: assert_payments_cover_order_total
+    description: Les paiements réussis couvrent exactement le total de chaque commande payée.
+  - name: assert_lines_reconcile_with_orders
+    description: La somme des ventes nettes des articles redonne la vente nette de la commande.
+  - name: assert_daily_report_matches_orders
+    description: Le rapport quotidien ne perd ni n'invente aucune vente par rapport aux commandes.
+  - name: assert_single_merchant
+    description: Une base ne contient qu'un seul marchand, pour que données simulées et données réelles ne se mélangent jamais.

@@ -1,0 +1,5 @@
+# Développement, démo locale et CI. Le serveur de production n'a besoin que de requirements.txt.
+-r requirements.txt
+duckdb>=1.4,<3
+dbt-duckdb>=1.10,<1.11
+playwright>=1.49,<2

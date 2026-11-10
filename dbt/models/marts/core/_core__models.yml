@@ -1,0 +1,175 @@
+version: 2
+
+models:
+  - name: dim_date
+    description: Calendrier, une ligne par jour. Libellés en français.
+    columns:
+      - name: date_day
+        description: Le jour (clé).
+        data_tests: [not_null, unique]
+      - name: month_start
+        description: Premier jour du mois.
+      - name: week_start
+        description: Lundi de la semaine.
+      - name: iso_weekday
+        description: 1 = lundi … 7 = dimanche.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+                max_value: 7
+      - name: weekday_name
+        description: Nom du jour en français.
+      - name: is_weekend
+        description: Vrai le samedi et le dimanche.
+
+  - name: dim_product
+    description: >
+      Produits de la carte, un par ligne. La catégorie et le coût matière estimé viennent
+      de seeds/menu_catalog.csv ; un produit absent du fichier est « Non classé ».
+    columns:
+      - name: product_id
+        description: Identifiant Clover du produit (clé).
+        data_tests: [not_null, unique]
+      - name: product_name
+        description: Nom le plus récent du produit dans la caisse.
+        data_tests: [not_null]
+      - name: category
+        description: Pizzas, Entrées, Boissons, Desserts ou Non classé.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["Pizzas", "Entrées", "Boissons", "Desserts", "Non classé"]
+      - name: list_price
+        description: Prix de vente le plus récent, hors taxes.
+      - name: estimated_unit_cost
+        description: Coût matière estimé d'une unité. Vide si le produit n'est pas dans le catalogue.
+      - name: is_in_catalog
+        description: Faux si le produit manque dans seeds/menu_catalog.csv.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [true]
+                quote: false
+              config:
+                severity: warn
+      - name: first_sold_date
+        description: Première vente observée.
+      - name: last_sold_date
+        description: Dernière vente observée.
+
+  - name: fct_orders
+    description: >
+      Commandes payées, une par ligne, à l'heure du restaurant. C'est la table de référence
+      des ventes : vente nette = vente brute − rabais − remboursements, hors taxes.
+    columns:
+      - name: order_id
+        description: Identifiant Clover de la commande (clé).
+        data_tests: [not_null, unique]
+      - name: merchant_id
+        description: Marchand Clover d'origine. Un seul par base (voir le test d'isolement).
+        data_tests: [not_null]
+      - name: ordered_at
+        description: Date et heure de la commande, heure du restaurant.
+        data_tests: [not_null]
+      - name: order_date
+        description: Jour de la commande.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+      - name: order_hour
+        description: Heure de la commande (0 à 23).
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 23
+      - name: order_type
+        description: Sur place, À emporter ou Livraison.
+      - name: tender_type
+        description: Moyen de paiement ; « Mixte » si la commande en combine plusieurs.
+      - name: item_count
+        description: Nombre d'articles de la commande.
+      - name: gross_sales
+        description: Articles et extras, avant rabais, hors taxes.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+      - name: discount_amount
+        description: Total des rabais de la commande.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+      - name: discount_name
+        description: Nom du rabais appliqué, s'il y en a un.
+      - name: refund_amount
+        description: Part hors taxes remboursée au client.
+      - name: net_sales
+        description: Vente nette = vente brute − rabais − remboursements. Hors taxes, hors pourboires.
+        data_tests: [not_null]
+      - name: tax_amount
+        description: TPS et TVQ perçues, nettes des remboursements.
+      - name: tip_amount
+        description: Pourboires, nets des remboursements.
+      - name: total_collected
+        description: Montant réellement encaissé = vente nette + taxes + pourboires.
+      - name: is_discounted
+        description: Vrai si la commande a reçu un rabais.
+      - name: is_refunded
+        description: Vrai si la commande a été remboursée, en tout ou en partie.
+      - name: minutes_to_payment
+        description: Minutes entre la commande et le paiement (durée du repas pour le service sur place).
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "net_sales = gross_sales - discount_amount - refund_amount"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "total_collected = net_sales + tax_amount + tip_amount"
+  
+  - name: fct_order_lines
+    description: >
+      Articles vendus, un par ligne. La vente nette de chaque article tient compte
+      de sa part des rabais et des remboursements de la commande.
+    columns:
+      - name: line_item_id
+        description: Identifiant Clover de la ligne (clé).
+        data_tests: [not_null, unique]
+      - name: order_id
+        description: Commande à laquelle appartient l'article.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('fct_orders')
+                field: order_id
+      - name: product_id
+        description: Produit vendu.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_product')
+                field: product_id
+      - name: order_date
+        description: Jour de la commande.
+      - name: category
+        description: Catégorie du produit.
+      - name: unit_price
+        description: Prix de l'article sans les extras, hors taxes.
+      - name: extras_count
+        description: Nombre d'extras ajoutés à l'article.
+      - name: extras_amount
+        description: Montant des extras.
+      - name: gross_sales
+        description: Prix de l'article + extras, avant rabais.
+      - name: net_sales
+        description: Part de la vente nette de la commande revenant à cet article.
+      - name: estimated_cost
+        description: Coût matière estimé de l'article (catalogue).

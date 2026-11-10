@@ -1,0 +1,7 @@
+{
+  "name": "Attaboy",
+  "tagline": "Pizzeria de quartier · Québec",
+  "currency": "CAD",
+  "locale": "fr-CA",
+  "demo_merchant_ids": ["DEMOPIZZERIA1"]
+}

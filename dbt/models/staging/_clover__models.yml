@@ -1,0 +1,69 @@
+version: 2
+
+models:
+  - name: stg_clover__orders
+    description: Commandes Clover nettoyées — noms clairs, heure locale, type de commande extrait du JSON.
+    columns:
+      - name: order_id
+        data_tests: [not_null, unique]
+      - name: created_at_local
+        description: Heure de création à l'heure du restaurant (var `local_timezone`).
+        data_tests: [not_null]
+      - name: order_type
+        description: Sur place, À emporter, Livraison — « Non précisé » si Clover ne le fournit pas.
+        data_tests: [not_null]
+
+  - name: stg_clover__line_items
+    description: Articles vendus, un par ligne de commande.
+    columns:
+      - name: line_item_id
+        data_tests: [not_null, unique]
+      - name: product_id
+        data_tests: [not_null]
+      - name: price_cents
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+  
+  - name: stg_clover__payments
+    description: Paiements, avec pourboire et taxes.
+    columns:
+      - name: payment_id
+        data_tests: [not_null, unique]
+      - name: payment_result
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["SUCCESS", "FAIL", "INITIATED", "VOIDED", "VOIDING", "AUTH", "AUTH_COMPLETED"]
+              config:
+                severity: warn
+
+  - name: stg_clover__modifications
+    description: Extras ajoutés aux articles, dépliés depuis le JSON des lignes.
+    columns:
+      - name: modification_id
+        data_tests: [not_null, unique]
+      - name: line_item_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_clover__line_items')
+                field: line_item_id
+  
+  - name: stg_clover__discounts
+    description: Rabais appliqués aux commandes, dépliés depuis le JSON des commandes.
+    columns:
+      - name: discount_id
+        data_tests: [not_null, unique]
+      - name: order_id
+        data_tests: [not_null]
+
+  - name: stg_clover__refunds
+    description: Remboursements, dépliés depuis le JSON des commandes.
+    columns:
+      - name: refund_id
+        data_tests: [not_null, unique]
+      - name: order_id
+        data_tests: [not_null]

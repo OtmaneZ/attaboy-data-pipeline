@@ -23,6 +23,14 @@ Une fiche en ligne mentionne aussi le 1086, avenue Cartier : probablement une an
 - Le propriétaire s'intéresse à la data : il doit pouvoir comprendre, lire et interroger ses données. Privilégier la clarté et la documentation.
 - Le propriétaire a accepté que le code soit public. Les données du restaurant, elles, ne sont jamais versionnées.
 
+## Les trois étapes, toujours dans cet ordre
+
+1. **Démo** sur données simulées, en local (DuckDB) : `make demo`. C'est ce que montrent les captures.
+2. **Projet réel** pour Attaboy : mêmes modèles, sur Snowflake, avec les ventes de la caisse.
+3. **Autres établissements** : le dépôt sert de base, un dépôt et une base par client.
+
+Tout ajout doit rester valable aux trois étapes : ce qui dépend du client vit dans la configuration (voir [docs/nouveau-client.md](docs/nouveau-client.md)), jamais dans les modèles.
+
 ## Ordres de grandeur à garder en tête
 
 - Volume : quelques dizaines à quelques centaines de commandes par jour. Un an de données tient largement dans une seule table Snowflake.

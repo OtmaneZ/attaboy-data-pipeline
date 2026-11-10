@@ -1,0 +1,63 @@
+version: 2
+
+sources:
+  - name: clover
+    description: >
+      Données brutes de la caisse Clover, chargées par scripts/ingest_clover.py
+      (MERGE idempotent). Chaque table garde le JSON complet de l'API dans `payload`.
+    schema: raw
+    loaded_at_field: _ingested_at
+    freshness:
+      warn_after: {count: 36, period: hour}
+      error_after: {count: 72, period: hour}
+    tables:
+      - name: raw_clover_orders
+        description: Une ligne par commande Clover (order.id).
+        columns:
+          - name: clover_order_id
+            description: Identifiant Clover de la commande — clé du MERGE.
+            data_tests: [not_null, unique]
+          - name: merchant_id
+            data_tests: [not_null]
+          - name: payload
+            description: JSON intégral de la commande (type, rabais, remboursements…).
+            data_tests: [not_null]
+      - name: raw_clover_line_items
+        description: Une ligne par article vendu (lineItem.id).
+        columns:
+          - name: clover_line_item_id
+            data_tests: [not_null, unique]
+          - name: clover_order_id
+            data_tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('clover', 'raw_clover_orders')
+                    field: clover_order_id
+      - name: raw_clover_payments
+        description: Une ligne par paiement (payment.id).
+        columns:
+          - name: clover_payment_id
+            data_tests: [not_null, unique]
+          - name: clover_order_id
+            data_tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('clover', 'raw_clover_orders')
+                    field: clover_order_id
+  
+  - name: meta
+    description: Journal d'exécution du pipeline.
+    schema: meta
+    tables:
+      - name: pipeline_runs
+        description: Une ligne par exécution (ingest, chargement de démo), succès comme échec.
+        columns:
+          - name: run_id
+            data_tests: [not_null, unique]
+          - name: status
+            data_tests:
+              - accepted_values:
+                  arguments:
+                    values: ["running", "success", "failed"]

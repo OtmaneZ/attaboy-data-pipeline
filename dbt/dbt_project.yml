@@ -1,19 +1,45 @@
 name: attaboy
-version: 1.0.0
+version: 2.0.0
 config-version: 2
 profile: attaboy
+require-dbt-version: [">=1.10.0", "<2.0.0"]
 
 model-paths: ["models"]
 macro-paths: ["macros"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
 target-path: target
 clean-targets: ["target", "dbt_packages"]
 
+# Tout ce qui dépend du client est ici (et dans seeds/) : pour un autre
+# établissement, on change ces valeurs, pas les modèles.
+vars:
+  local_timezone: America/Toronto   # même fuseau que Québec
+  calendar_start: "2024-01-01"
+  calendar_end: "2030-12-31"
+  menu_window_days: 90              # fenêtre d'analyse de la carte et des associations
+  pairs_min_orders: 30              # nombre minimal de commandes communes pour afficher une paire
+
 models:
   attaboy:
-    +schema: analytics
     staging:
       +materialized: view
+      +schema: staging
       +tags: ["staging"]
+    intermediate:
+      +materialized: view
+      +schema: staging
+      +tags: ["intermediate"]
     marts:
       +materialized: table
+      +schema: analytics
       +tags: ["marts"]
+
+seeds:
+  attaboy:
+    +schema: staging
+    menu_catalog:
+      +column_types:
+        product_id: varchar
+        category: varchar
+        estimated_unit_cost: decimal(18,2)

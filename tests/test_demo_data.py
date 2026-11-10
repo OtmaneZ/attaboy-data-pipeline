@@ -108,3 +108,28 @@ def test_load_orders_uses_merge_and_logs_run() -> None:
     assert conn.finished[-1][1] == "success"
     staged_orders = conn.staged[0][1]
     assert all(r["merchant_id"] == DEMO_MERCHANT_ID for r in staged_orders)
+
+
+def test_closed_on_christmas_and_new_year() -> None:
+    gen = DemoGenerator(seed=7)
+    assert gen.orders_for_day(date(2025, 12, 25)) == []
+    assert gen.orders_for_day(date(2026, 1, 1)) == []
+    assert summarize(gen.generate(date(2025, 12, 24), date(2025, 12, 26)))["days"] == 2
+
+
+def test_new_pizza_is_not_sold_before_its_launch() -> None:
+    orders = DemoGenerator(seed=7).generate(date(2026, 5, 18), date(2026, 6, 14))
+    first_sale = min(
+        datetime.fromtimestamp(o["createdTime"] / 1000, tz=LOCAL_TZ).date()
+        for o in orders
+        for li in _elements(o, "lineItems")
+        if li["item"]["id"] == "PIZ09"
+    )
+    assert first_sale >= date(2026, 6, 1)
+
+
+def test_summer_is_busier_than_january() -> None:
+    gen = DemoGenerator(seed=7)
+    january = len(gen.generate(date(2026, 1, 12), date(2026, 1, 25)))
+    july = len(gen.generate(date(2026, 7, 20), date(2026, 8, 2)))
+    assert july > january * 1.3

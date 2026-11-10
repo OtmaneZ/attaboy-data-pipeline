@@ -1,35 +1,88 @@
-# Attaboy — pipeline data
+# Attaboy — de la caisse au tableau de bord
 
-Pipeline de données d'**Attaboy, pizzeria de quartier** (Québec, rue Saint-Jean) : les ventes de la caisse Clover sont chargées chaque jour dans Snowflake, puis transformées avec dbt en tables prêtes pour Power BI ou les dashboards Snowsight.
+Pipeline de données et cockpit des ventes d'**Attaboy, pizzeria de quartier** (Québec, rue Saint-Jean). Les ventes de la caisse Clover sont chargées chaque jour dans Snowflake, transformées et testées avec dbt, puis publiées dans une page que le propriétaire ouvre sur son téléphone.
 
-Contexte et ordres de grandeur : [CONTEXT.md](CONTEXT.md) · Coûts d'infrastructure : [docs/couts.md](docs/couts.md)
+![Cockpit des ventes sur 12 mois — données simulées](docs/captures/cockpit-ventes-12-mois.png)
+
+> Toutes les captures de ce dépôt montrent des **données simulées**. Aucune donnée réelle du restaurant n'est versionnée.
+
+## Voir le projet tourner en une minute
+
+Aucun compte, aucun secret : la démo s'exécute en local sur DuckDB avec un an de commandes fictives.
+
+```bash
+git clone git@github.com:OtmaneZ/attaboy-data-pipeline.git && cd attaboy-data-pipeline
+make install    # environnement Python + dbt
+make demo       # données simulées → dbt build (modèles + tests) → cockpit
+```
+
+Le cockpit est dans `cockpit/dist/index.html` : un seul fichier, à ouvrir dans un navigateur.
+
+## Ce que le propriétaire y trouve
+
+| Onglet | Questions auxquelles il répond |
+|---|---|
+| **Ventes** | Combien ai-je vendu, par rapport à la période précédente ? Quels jours et quelles heures sont les plus chargés ? Quelle part pour la livraison ? |
+| **Carte** | Quels produits rapportent le plus ? Lesquels pousser, revoir ou retirer ? Quels produits se vendent ensemble ? |
+| **Fiabilité des données** | Les chiffres sont-ils à jour ? Quels contrôles ont tourné ? Comment chaque chiffre est-il défini ? |
+
+| Carte | Fiabilité des données |
+|---|---|
+| ![Onglet Carte — données simulées](docs/captures/cockpit-carte.png) | ![Onglet Fiabilité — données simulées](docs/captures/cockpit-fiabilite.png) |
 
 ## Architecture
 
 ```
-API Clover ──► scripts/ingest_clover.py ──► Snowflake ATTABOY_DW
-               (incrémental, MERGE)         ├─ RAW        données brutes (JSON en VARIANT)
-                                            ├─ META       journal des runs (PIPELINE_RUNS)
-                                            └─ ANALYTICS  modèles dbt ──► Power BI / Snowsight
-                                                          (stg_* en vues, fct_* en tables)    (rôle ATTABOY_READONLY)
+API Clover ─► scripts/ingest_clover.py ─► RAW ──────► STAGING ───────► ANALYTICS ────► Cockpit HTML
+              incrémental, MERGE          JSON brut    vues dbt         tables dbt      scripts/build_cockpit.py
+              idempotent                  (VARIANT)    nettoyage,       dim_*, fct_*,   Power BI / Snowsight
+                                                       JSON déplié      rpt_*           (rôle lecture seule)
+                                          META : journal de chaque exécution
 ```
 
-- **Incrémental** : chaque run relit les commandes Clover modifiées depuis le début du dernier run réussi.
-- **Idempotent** : chargement en tables temporaires puis `MERGE` dédoublonné dans une transaction. Relancer un run ne crée pas de doublon.
-- **Sécurité** : compte de service Snowflake avec paire de clés RSA (sans mot de passe), rôles séparés écriture / lecture, secrets uniquement dans `.env` hors du repo.
-- **Coûts maîtrisés** : warehouse XS en veille après 60 s, plafond de 10 crédits par mois.
+- **Incrémental et idempotent** : chaque run relit les commandes modifiées depuis le début du dernier run réussi, puis fait un `MERGE` dédoublonné dans une transaction. Relancer un run ne crée jamais de doublon.
+- **Deux cibles, les mêmes modèles** : `snowflake` pour le projet, `local` (DuckDB) pour la démo, le développement et la CI. Six macros isolent les différences de syntaxe.
+- **Sécurité** : compte de service avec paire de clés RSA, rôles séparés écriture / lecture, secrets uniquement dans un `.env` hors du dépôt, champs libres de la caisse confinés au schéma `RAW`.
+- **Coûts maîtrisés** : warehouse XS en veille après 60 s, plafond de 10 crédits par mois, cockpit consultable sans rallumer l'entrepôt. Détail dans [docs/couts.md](docs/couts.md).
 
-## Contenu du repo
+Les choix et leurs raisons : [docs/decisions.md](docs/decisions.md).
+
+## Modèle de données
+
+![Graphe de dépendances dbt](docs/captures/dbt-lineage.png)
+
+| Couche | Modèles | Rôle |
+|---|---|---|
+| `staging` | `stg_clover__orders`, `__line_items`, `__payments`, `__modifications`, `__discounts`, `__refunds` | Noms clairs, heure du restaurant, extras, rabais et remboursements dépliés depuis le JSON |
+| `intermediate` | `int_order_lines__priced`, `int_orders__amounts` | La définition unique des ventes : brut, rabais, taxes, pourboires, remboursements |
+| `marts/core` | `dim_date`, `dim_product`, `fct_orders`, `fct_order_lines` | Modèle en étoile, une ligne par commande et par article |
+| `marts/reporting` | `rpt_sales_daily`, `rpt_sales_hourly`, `rpt_sales_by_channel_daily`, `rpt_sales_by_tender_daily`, `rpt_product_daily`, `rpt_menu_engineering`, `rpt_product_pairs`, `rpt_pipeline_runs` | Tables prêtes à lire : rapport quotidien, affluence, analyse de la carte, associations de produits |
+
+## Qualité
+
+Chaque exécution lance 100 contrôles dbt ; un seul échec arrête le pipeline avant le cockpit.
+
+- **Règles métier** : le total recalculé de chaque commande retombe sur celui de la caisse au cent près ; les paiements couvrent le total ; la somme des articles redonne la commande ; le rapport quotidien ne perd aucune vente.
+- **Tests unitaires dbt** : conversion d'un rabais en pourcentage, part hors taxes d'un remboursement, classement de la carte (méthode Kasavana-Smith) sur un cas d'école.
+- **Structure** : clés uniques et non nulles, relations entre tables, valeurs autorisées, fraîcheur des sources.
+- **Isolement** : une base ne contient qu'un marchand ; données simulées et réelles ne se mélangent pas.
+
+S'y ajoutent 42 tests unitaires Python (ingest, générateur, chargement local, cockpit) et une CI GitHub Actions qui rejoue le pipeline complet à chaque push.
+
+## Contenu du dépôt
 
 | Dossier | Rôle |
-|---------|------|
-| `sql/` | Provisioning Snowflake versionné : `000` infra + rôles, `001` tables RAW, `002` tables META, `999` suppression complète |
-| `scripts/` | `ingest_clover.py` (ingest), `snowflake_utils.py` (connexion, `.env`, journal des runs) |
-| `dbt/` | Modèles `staging` et `marts` (`fct_order_lines`, `fct_sales_daily`) + tests |
-| `tests/` | Tests unitaires pytest (sans connexion réelle) |
-| `docs/` | Documentation de passation |
+|---|---|
+| `sql/` | Provisioning Snowflake versionné : `000` infra et rôles, `001` tables RAW, `002` tables META, `999` suppression complète |
+| `scripts/` | `ingest_clover.py` (ingest), `demo_data.py` (commandes simulées), `local_warehouse.py` (entrepôt DuckDB), `build_cockpit.py` (cockpit), `capture.py` (captures d'écran) |
+| `dbt/` | Modèles, macros, catalogue du menu (`seeds/`), tests |
+| `cockpit/` | Gabarit du cockpit et réglages propres au client (`client.json`) |
+| `tests/` | Tests unitaires pytest, sans connexion |
+| `docs/` | [Décisions](docs/decisions.md), [coûts](docs/couts.md), [reprise pour un autre établissement](docs/nouveau-client.md), captures |
 
-## Mise en place
+`make` affiche toutes les commandes disponibles.
+
+## Mise en place sur Snowflake
 
 ### 1. Snowflake (une fois, avec le rôle ACCOUNTADMIN)
 
@@ -50,35 +103,26 @@ Dans Snowsight (Worksheet), exécuter dans l'ordre :
 ### 2. Serveur
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+make install
 cp .env.example /opt/clients/attaboy/.env   # puis remplir ; chmod 600
 ```
 
 ### 3. Lancer
 
 ```bash
-set -a; source /opt/clients/attaboy/.env; set +a
-
-.venv/bin/python -m scripts.ingest_clover          # Clover → RAW
-
-export DBT_PROFILES_DIR=$PWD/dbt
-cd dbt && ../.venv/bin/dbt debug && ../.venv/bin/dbt build   # modèles + tests
+make daily      # ingest Clover → dbt build → cockpit, avec les variables de /opt/clients/attaboy/.env
 ```
 
-Tests unitaires : `.venv/bin/pytest -q`
-
-### Données de démonstration
-
-Les captures et la démo de ce repo utilisent des **données simulées** : `scripts/demo_data.py` génère des commandes fictives de pizzeria au format exact de l'API Clover (menu, affluence selon l'heure et le jour, extras, rabais, taxes TPS/TVQ, pourboires, remboursements). Aucune donnée réelle du restaurant n'apparaît dans ce repo.
+Pour charger les données simulées dans Snowflake plutôt que les ventes réelles :
 
 ```bash
-.venv/bin/python -m scripts.demo_data --days 120          # résumé de contrôle, rien n'est chargé
-.venv/bin/python -m scripts.demo_data --days 120 --load   # chargement dans RAW via le même MERGE que l'ingest
+set -a; source /opt/clients/attaboy/.env; set +a
+.venv/bin/python -m scripts.demo_data --days 120 --load
 ```
 
 Les lignes simulées portent le `merchant_id` `DEMOPIZZERIA1` et un `run_id` préfixé `demo-`.
 
-## Suivi
+### Suivi
 
 ```sql
 SELECT * FROM ATTABOY_DW.META.V_PIPELINE_LAST_RUN;   -- dernier run de chaque pipeline
@@ -86,13 +130,19 @@ SELECT * FROM ATTABOY_DW.META.V_PIPELINE_LAST_RUN;   -- dernier run de chaque pi
 
 ## État
 
-- [x] Ingest Clover → Snowflake
-- [x] Modèles dbt ventes (lignes de commande, ventes par jour)
-- [ ] Ingest des factures fournisseurs PDF (Saputo, Colabor) → coûts matières
-- [ ] Orchestration quotidienne (systemd timer, 05:00 heure de l'Est) + alertes Healthchecks.io
-- [ ] Utilisateur en lecture seule pour Power BI / Snowsight
+- [x] Ingest Clover → Snowflake (incrémental, idempotent)
+- [x] Modèles dbt : étoile des ventes, rapports, analyse de la carte
+- [x] Démo locale complète, CI, cockpit des ventes
+- [ ] Première exécution complète sur Snowflake (à ce jour : exécution sur DuckDB, SQL Snowflake compilé mais pas encore exécuté)
+- [ ] Ingest réel : élargir les champs demandés à l'API Clover (type de commande, rabais, remboursements, extras)
+- [ ] Ingest des factures fournisseurs PDF (Saputo, Colabor) → coûts matière réels à la place du catalogue estimé
+- [ ] Orchestration quotidienne (timer systemd, 05:00 heure de l'Est) et alertes Healthchecks.io
 - [ ] Passage au compte Snowflake du restaurant
 
 ## Réversibilité
 
 `sql/999_teardown.sql` supprime tout ce que le projet a créé dans Snowflake (récupérable pendant 1 jour avec `UNDROP DATABASE`). Les données brutes peuvent être rechargées à tout moment depuis l'API Clover.
+
+## Licence
+
+[MIT](LICENSE). Le nom Attaboy est utilisé avec l'accord du propriétaire.

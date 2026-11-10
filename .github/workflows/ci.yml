@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pipeline:
+    name: Tests et pipeline complet sur données simulées
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Installer les dépendances
+        run: make install
+
+      - name: Tests unitaires Python
+        run: make test
+
+      # Le pipeline entier tourne sur DuckDB : génération, chargement, dbt build
+      # (modèles + tests), cockpit. Aucun secret, aucun crédit Snowflake.
+      - name: Pipeline de démonstration
+        run: make demo
+
+      - name: Publier le cockpit généré
+        uses: actions/upload-artifact@v4
+        with:
+          name: cockpit
+          path: cockpit/dist/index.html
+          retention-days: 14

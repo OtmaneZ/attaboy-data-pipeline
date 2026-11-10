@@ -1,0 +1,797 @@
+<title>Cockpit Attaboy</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+/* Mise en page : un bandeau, trois onglets, une ligne de filtres, puis des blocs sur une grille de 12 colonnes. */
+:root {
+  --plane: #f6f6f3;
+  --surface: #fcfcfb;
+  --surface-2: #f0efec;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --ink-3: #77756f;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.10);
+  --brand: #c4321c;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --soft-bar: #b7d3f6;
+  --seq-1: #cde2fb; --seq-2: #9ec5f4; --seq-3: #6da7ec; --seq-4: #3987e5; --seq-5: #256abf; --seq-6: #104281;
+  --on-fill: #ffffff;
+  --good: #0ca30c; --warning: #fab219; --critical: #d03b3b;
+  --delta-good: #006300; --delta-bad: #b42a2a;
+  --font-display: "Bricolage Grotesque", "Instrument Sans", system-ui, sans-serif;
+  --font-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --plane: #0d0d0d; --surface: #1a1a19; --surface-2: #262624; --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #96948d;
+    --grid: #2c2c2a; --axis: #46463f; --border: rgba(255, 255, 255, 0.10); --brand: #ef6a52;
+    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500; --soft-bar: #184f95;
+    --seq-1: #0d366b; --seq-2: #184f95; --seq-3: #256abf; --seq-4: #3987e5; --seq-5: #6da7ec; --seq-6: #9ec5f4;
+    --delta-good: #0ca30c; --delta-bad: #e66767; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --plane: #0d0d0d; --surface: #1a1a19; --surface-2: #262624; --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #96948d;
+  --grid: #2c2c2a; --axis: #46463f; --border: rgba(255, 255, 255, 0.10); --brand: #ef6a52;
+  --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500; --soft-bar: #184f95;
+  --seq-1: #0d366b; --seq-2: #184f95; --seq-3: #256abf; --seq-4: #3987e5; --seq-5: #6da7ec; --seq-6: #9ec5f4;
+  --delta-good: #0ca30c; --delta-bad: #e66767; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--plane); color: var(--ink); font: 400 15px/1.45 var(--font-body); -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--series-1); outline-offset: 2px; }
+
+.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+/* Bandeau */
+.top { background: var(--surface); border-bottom: 1px solid var(--border); }
+.top .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; padding-block: 14px 0; }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand svg { flex: none; }
+.brand-name { font: 700 22px/1 var(--font-display); letter-spacing: -0.01em; }
+.brand-sub { color: var(--ink-3); font-size: 13px; }
+.top-meta { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font-size: 13px; color: var(--ink-2); }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); font-size: 12.5px; font-weight: 500; color: var(--ink); white-space: nowrap; }
+.pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); }
+.pill.demo .dot { background: var(--warning); }
+.pill.ok .dot { background: var(--good); }
+.pill.ko .dot { background: var(--critical); }
+.tabs { display: flex; gap: 4px; width: 100%; overflow-x: auto; }
+.tab { border: 0; background: none; padding: 10px 14px 12px; border-bottom: 2px solid transparent; color: var(--ink-2); font-weight: 500; cursor: pointer; white-space: nowrap; }
+.tab:hover { color: var(--ink); }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+
+/* Filtres */
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding-block: 18px 6px; }
+.seg { display: inline-flex; padding: 3px; border-radius: 9px; background: var(--surface-2); border: 1px solid var(--border); }
+.seg button { border: 0; background: none; padding: 5px 13px; border-radius: 6px; cursor: pointer; color: var(--ink-2); font-weight: 500; font-size: 14px; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--border); }
+.range-note { color: var(--ink-2); font-size: 13.5px; }
+
+/* Grille */
+main { padding-block: 8px 40px; }
+.grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
+.c12 { grid-column: span 12; } .c8 { grid-column: span 8; } .c7 { grid-column: span 7; } .c6 { grid-column: span 6; } .c5 { grid-column: span 5; } .c4 { grid-column: span 4; }
+@media (max-width: 980px) { .c8, .c7, .c6, .c5, .c4 { grid-column: span 12; } }
+
+/* Chiffres clés */
+.kpis { grid-column: span 12; display: grid; grid-template-columns: 1.5fr repeat(4, minmax(0, 1fr)); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.kpis.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.kpis.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.kpi { padding: 18px 20px 16px; border-left: 1px solid var(--grid); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.kpi:first-child { border-left: 0; }
+.kpi-label { color: var(--ink-2); font-size: 13.5px; }
+.kpi-value { font-weight: 600; font-size: 26px; line-height: 1.15; letter-spacing: -0.01em; }
+.kpi.hero .kpi-value { font-size: 50px; line-height: 1.05; letter-spacing: -0.025em; }
+.kpi-foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; margin-top: auto; padding-top: 6px; min-height: 30px; }
+.kpi-note { color: var(--ink-3); font-size: 12.5px; }
+.delta { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.delta.good { color: var(--delta-good); } .delta.bad { color: var(--delta-bad); } .delta.flat { color: var(--ink-3); }
+.delta small { font-weight: 400; color: var(--ink-3); font-size: 12px; margin-left: 4px; }
+.spark { flex: none; }
+@media (max-width: 980px) {
+  .kpis, .kpis.three, .kpis.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi.hero { grid-column: span 2; }
+  .kpi { border-left: 0; border-top: 1px solid var(--grid); }
+  .kpi.hero .kpi-value { font-size: 42px; }
+}
+
+/* Blocs */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px 16px; min-width: 0; display: flex; flex-direction: column; }
+.card-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+.card-head h2 { margin: 0; font: 600 17px/1.25 var(--font-display); letter-spacing: -0.005em; text-wrap: balance; }
+.card-head p { margin: 3px 0 0; color: var(--ink-2); font-size: 13.5px; }
+.card-head .txt { min-width: 0; flex: 1; }
+.ghost { flex: none; border: 1px solid var(--border); background: none; border-radius: 7px; padding: 3px 9px; font-size: 12.5px; color: var(--ink-2); cursor: pointer; }
+.ghost:hover { background: var(--surface-2); color: var(--ink); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--ink-2); margin-bottom: 8px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.key { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+.key.line { height: 2px; width: 16px; border-radius: 1px; }
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+svg text { font-family: var(--font-body); }
+.t-axis { fill: var(--ink-3); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.t-label { fill: var(--ink); font-size: 12px; font-weight: 500; }
+.t-quad { fill: var(--ink-3); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.gridline { stroke: var(--grid); stroke-width: 1; }
+.baseline { stroke: var(--axis); stroke-width: 1; }
+.empty { color: var(--ink-3); font-size: 14px; padding: 24px 0; }
+
+/* Tableaux */
+.table-scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th { text-align: left; font-weight: 500; color: var(--ink-3); font-size: 12.5px; padding: 6px 10px 6px 0; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+td { padding: 8px 10px 8px 0; border-bottom: 1px solid var(--grid); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; padding-right: 14px; }
+td.muted { color: var(--ink-2); }
+.mono { font-family: var(--font-mono); font-size: 12.5px; }
+
+/* Barres classées */
+.rank { display: grid; grid-template-columns: minmax(110px, 0.9fr) minmax(60px, 1.6fr) auto auto; gap: 9px 12px; align-items: center; font-size: 13.5px; }
+.rank .name { min-width: 0; overflow-wrap: anywhere; }
+.rank .name small { display: block; color: var(--ink-3); font-size: 12px; }
+.rank .track { height: 12px; }
+.rank .bar { height: 12px; border-radius: 0 4px 4px 0; background: var(--series-1); min-width: 2px; }
+.rank .val { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
+.rank .sub { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-3); font-size: 12.5px; }
+
+/* Barre segmentée */
+.segbar { display: flex; gap: 2px; height: 28px; }
+.segbar > div { border-radius: 4px; min-width: 2px; display: flex; align-items: center; padding-left: 8px; font-size: 12.5px; font-weight: 600; color: var(--on-fill); overflow: visible; white-space: nowrap; }
+.seglist { display: grid; grid-template-columns: auto 1fr auto auto; gap: 8px 12px; align-items: center; margin-top: 14px; font-size: 13.5px; }
+.seglist-wide { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px 32px; margin-top: 14px; font-size: 13.5px; }
+.segrow { display: flex; align-items: center; gap: 8px; }
+.segrow .v { margin-left: auto; font-variant-numeric: tabular-nums; }
+.segrow .p { font-variant-numeric: tabular-nums; color: var(--ink-3); min-width: 48px; text-align: right; }
+.r2 { grid-row: span 2; }
+.seglist .v { text-align: right; font-variant-numeric: tabular-nums; }
+.seglist .p { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-3); min-width: 44px; }
+
+/* Affluence */
+.heat { display: grid; gap: 2px; font-size: 11.5px; }
+.heat .hl { color: var(--ink-3); display: flex; align-items: center; padding-right: 8px; font-size: 12.5px; }
+.heat .hh { color: var(--ink-3); text-align: center; font-variant-numeric: tabular-nums; padding-top: 4px; }
+.heat .cell { aspect-ratio: 1.55; border-radius: 3px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; font-weight: 600; min-width: 0; }
+.heat .cell:hover { outline: 2px solid var(--ink); outline-offset: -1px; }
+.heat-scale { display: flex; align-items: center; gap: 8px; margin-top: 12px; color: var(--ink-3); font-size: 12.5px; }
+.heat-scale i { display: block; width: 22px; height: 10px; border-radius: 2px; }
+.heat-scale .steps { display: flex; gap: 2px; }
+
+/* Classement de la carte */
+.klass { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border: 1px solid var(--border); border-radius: 999px; font-size: 12.5px; font-weight: 500; white-space: nowrap; background: var(--surface-2); }
+.meter { display: flex; align-items: center; gap: 10px; }
+.meter .track { flex: 1; min-width: 60px; height: 8px; border-radius: 4px; background: var(--seq-1); }
+.meter .fill { height: 8px; border-radius: 4px; background: var(--series-1); }
+.meter b { font-weight: 600; font-variant-numeric: tabular-nums; min-width: 42px; text-align: right; }
+
+/* Fiabilité */
+.flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 26px; }
+.step { position: relative; border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: var(--plane); min-width: 0; }
+.step b { display: block; font: 600 15px/1.2 var(--font-display); }
+.step .where { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-3); }
+.step p { margin: 6px 0 0; font-size: 13px; color: var(--ink-2); }
+.step:not(:last-child)::after { content: "→"; position: absolute; right: -21px; top: 50%; transform: translateY(-50%); color: var(--ink-3); font-size: 16px; }
+@media (max-width: 980px) { .flow { grid-template-columns: 1fr; gap: 22px; } .step:not(:last-child)::after { content: "↓"; right: auto; left: 50%; top: auto; bottom: -21px; transform: translateX(-50%); } }
+.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.checks li { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: start; font-size: 14px; }
+.checks .ic { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: #fff; background: var(--good); margin-top: 1px; }
+.checks .ic.warn { background: var(--warning); color: #0b0b0b; } .checks .ic.fail { background: var(--critical); }
+.checks small { display: block; color: var(--ink-3); font-size: 12.5px; }
+.checks.reading { gap: 16px; }
+.checks.reading .glyph { font-size: 15px; color: var(--ink-2); text-align: center; }
+.checks.reading .names { margin-top: 2px; }
+.checks .n { color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sub-h { font: 600 13px/1 var(--font-body); color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.07em; margin: 18px 0 10px; }
+.sub-h:first-child { margin-top: 0; }
+dl.glossary { margin: 0; display: grid; gap: 12px; font-size: 14px; }
+dl.glossary dt { font-weight: 600; }
+dl.glossary dd { margin: 1px 0 0; color: var(--ink-2); }
+
+.tip { position: fixed; z-index: 30; pointer-events: none; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14); padding: 9px 11px; font-size: 13px; max-width: 280px; }
+.tip h4 { margin: 0 0 5px; font: 500 12.5px/1.2 var(--font-body); color: var(--ink-2); }
+.tip .row { display: flex; align-items: center; gap: 8px; }
+.tip .row b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.tip .row span { color: var(--ink-2); }
+.tip .row i { width: 12px; height: 2px; border-radius: 1px; flex: none; }
+.tip p { margin: 6px 0 0; color: var(--ink-2); font-size: 12.5px; }
+
+footer { color: var(--ink-3); font-size: 12.5px; padding-block: 0 28px; display: flex; flex-wrap: wrap; gap: 4px 18px; }
+@media (prefers-reduced-motion: no-preference) { .bar, .fill { transition: width 0.25s ease; } }
+</style>
+
+<div class="top">
+  <div class="wrap">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true">
+        <path d="M15 3.2c5 0 9.4 1.6 12.2 4.2L15 27.4 2.8 7.4C5.6 4.8 10 3.2 15 3.2z" fill="var(--brand)"/>
+        <circle cx="12" cy="10.5" r="2" fill="var(--surface)"/><circle cx="17.6" cy="13.6" r="1.7" fill="var(--surface)"/><circle cx="14.4" cy="17.8" r="1.5" fill="var(--surface)"/>
+      </svg>
+      <div>
+        <div class="brand-name" id="brand-name"></div>
+        <div class="brand-sub" id="brand-sub"></div>
+      </div>
+    </div>
+    <div class="top-meta" id="top-meta"></div>
+    <div class="tabs" role="tablist" aria-label="Sections du cockpit" id="tabs"></div>
+  </div>
+</div>
+<div class="wrap">
+  <div class="filters" id="filters"></div>
+  <main><div class="grid" id="view"></div></main>
+  <footer id="footer"></footer>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script type="application/json" id="cockpit-data">/*__COCKPIT_DATA__*/</script>
+<script>
+(() => {
+  "use strict";
+  const DATA = JSON.parse(document.getElementById("cockpit-data").textContent);
+  const META = DATA.meta;
+  const LOCALE = META.client.locale;
+  const objects = (t) => t.rows.map((r) => Object.fromEntries(t.cols.map((c, i) => [c, r[i]])));
+  const DAILY = objects(DATA.daily), CHANNELS = objects(DATA.channels), TENDERS = objects(DATA.tenders);
+  const HOURLY = objects(DATA.hourly), PRODUCT_DAILY = objects(DATA.product_daily);
+  const PRODUCTS = new Map(objects(DATA.products).map((p) => [p.product_id, p]));
+  const MENU = objects(DATA.menu), PAIRS = objects(DATA.pairs), RUNS = objects(DATA.runs), Q = DATA.quality;
+
+  /* ---------- formats ---------- */
+  const nf = (o) => new Intl.NumberFormat(LOCALE, o);
+  const money0 = nf({ style: "currency", currency: META.client.currency, maximumFractionDigits: 0 });
+  const money2 = nf({ style: "currency", currency: META.client.currency, minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const int = nf({ maximumFractionDigits: 0 });
+  const dec1 = nf({ minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const pct = (v, d = 1) => nf({ style: "percent", minimumFractionDigits: d, maximumFractionDigits: d }).format(v);
+  const toDate = (iso) => new Date(iso + "T00:00:00Z");
+  const dfmt = (o) => new Intl.DateTimeFormat(LOCALE, { timeZone: "UTC", ...o });
+  const dShort = (iso) => dfmt({ day: "numeric", month: "short" }).format(toDate(iso));
+  const dLong = (iso) => dfmt({ weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(toDate(iso));
+  const dFull = (iso) => dfmt({ day: "numeric", month: "long", year: "numeric" }).format(toDate(iso));
+  const dMonth = (iso) => dfmt({ month: "short", year: "2-digit" }).format(toDate(iso));
+  const addDays = (iso, n) => new Date(toDate(iso).getTime() + n * 864e5).toISOString().slice(0, 10);
+  const WEEKDAYS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
+  const WD_SHORT = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."];
+  const sum = (rows, f) => rows.reduce((a, r) => a + (f(r) || 0), 0);
+
+  /* ---------- DOM ---------- */
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  function build(el, attrs, kids) {
+    for (const k in attrs || {}) {
+      const v = attrs[k];
+      if (v == null || v === false) continue;
+      if (k === "text") el.textContent = v;
+      else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, v === true ? "" : v);
+    }
+    for (const kid of kids.flat(3)) {
+      if (kid == null || kid === false) continue;
+      el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+    }
+    return el;
+  }
+  const h = (tag, attrs, ...kids) => build(document.createElement(tag), attrs, kids);
+  const s = (tag, attrs, ...kids) => build(document.createElementNS(SVG_NS, tag), attrs, kids);
+  const cssVar = (name) => `var(--${name})`;
+
+  /* ---------- infobulle ---------- */
+  const tipEl = document.getElementById("tip");
+  const tip = {
+    show(evt, title, rows, note) {
+      tipEl.replaceChildren(
+        h("h4", { text: title }),
+        ...rows.map((r) => h("div", { class: "row" }, r.color && h("i", { style: `background:${r.color}` }), h("b", { text: r.value }), h("span", { text: r.label }))),
+        note && h("p", { text: note })
+      );
+      tipEl.hidden = false;
+      const w = tipEl.offsetWidth, hh = tipEl.offsetHeight;
+      let x = evt.clientX + 14, y = evt.clientY + 14;
+      if (x + w > innerWidth - 8) x = evt.clientX - w - 14;
+      if (y + hh > innerHeight - 8) y = evt.clientY - hh - 14;
+      tipEl.style.left = Math.max(8, x) + "px";
+      tipEl.style.top = Math.max(8, y) + "px";
+    },
+    hide() { tipEl.hidden = true; },
+  };
+  const hover = (el, fn) => {
+    el.addEventListener("pointermove", (e) => fn(e));
+    el.addEventListener("pointerleave", tip.hide);
+    return el;
+  };
+
+  /* ---------- état ---------- */
+  const PERIODS = [{ days: 30, label: "30 jours" }, { days: 90, label: "90 jours" }, { days: 365, label: "12 mois" }];
+  const TABS = [{ id: "ventes", label: "Ventes" }, { id: "carte", label: "Carte" }, { id: "fiabilite", label: "Fiabilité des données" }];
+  const state = { tab: "ventes", days: 90, tables: new Set() };
+  const fromHash = () => { const id = location.hash.slice(1); if (TABS.some((t) => t.id === id)) state.tab = id; };
+
+  function windowOf(days) {
+    const end = META.last_day;
+    const start = addDays(end, -(days - 1)) < META.first_day ? META.first_day : addDays(end, -(days - 1));
+    const prevEnd = addDays(start, -1), prevStart = addDays(start, -days);
+    return { start, end, prev: prevStart >= META.first_day ? { start: prevStart, end: prevEnd } : null };
+  }
+  const within = (rows, key, w) => rows.filter((r) => r[key] >= w.start && r[key] <= w.end);
+
+  /* Regroupe les jours : par jour (30 j), par semaine (90 j), par mois (12 mois). */
+  function buckets(days, period) {
+    const out = new Map();
+    for (const d of days) {
+      let key, label;
+      if (period <= 31) { key = d.date_day; label = dShort(d.date_day); }
+      else if (period <= 100) { key = addDays(d.date_day, -(d.iso_weekday - 1)); label = "sem. du " + dShort(key); }
+      else { key = d.date_day.slice(0, 7); label = dMonth(key + "-01"); }
+      if (!out.has(key)) out.set(key, { key, label, days: [] });
+      out.get(key).days.push(d);
+    }
+    return [...out.values()];
+  }
+  function bucketKey(iso, period) {
+    if (period <= 31) return iso;
+    if (period <= 100) { const wd = (toDate(iso).getUTCDay() + 6) % 7; return addDays(iso, -wd); }
+    return iso.slice(0, 7);
+  }
+
+  function niceTicks(max, target = 4) {
+    if (!(max > 0)) return [0, 1];
+    const raw = max / target, pow = Math.pow(10, Math.floor(Math.log10(raw)));
+    const step = [1, 2, 2.5, 5, 10].map((m) => m * pow).find((v) => v >= raw);
+    const ticks = [];
+    for (let v = 0; v < max + step * 0.999; v += step) ticks.push(Math.round(v * 1e6) / 1e6);
+    return ticks;
+  }
+
+  /* ---------- briques ---------- */
+  function card(id, cls, title, subtitle, chartNode, table) {
+    const showTable = state.tables.has(id);
+    const body = showTable && table ? tableNode(table) : chartNode;
+    return h("section", { class: `card ${cls}` },
+      h("div", { class: "card-head" },
+        h("div", { class: "txt" }, h("h2", { text: title }), subtitle && h("p", { text: subtitle })),
+        table && h("button", { class: "ghost", type: "button", "aria-pressed": String(showTable), text: showTable ? "Graphique" : "Tableau",
+          onclick: () => { showTable ? state.tables.delete(id) : state.tables.add(id); render(); } })
+      ),
+      body
+    );
+  }
+  function tableNode({ cols, rows }) {
+    return h("div", { class: "table-scroll" }, h("table", null,
+      h("thead", null, h("tr", null, cols.map((c) => h("th", { class: c.num ? "num" : null, text: c.label })))),
+      h("tbody", null, rows.map((r) => h("tr", null, r.map((v, i) => h("td", { class: cols[i].num ? "num" : cols[i].cls || null }, v)))))
+    ));
+  }
+  function deltaNode(cur, prev, { upIsGood = true, points = false } = {}) {
+    if (prev == null || (!points && !prev)) return h("span", { class: "delta flat", text: "—" }, h("small", { text: "pas de période comparable" }));
+    const diff = points ? (cur - prev) * 100 : (cur - prev) / prev;
+    const flat = Math.abs(diff) < (points ? 0.05 : 0.0005);
+    const up = diff > 0;
+    const cls = flat ? "flat" : up === upIsGood ? "good" : "bad";
+    const txt = (flat ? "= " : up ? "▲ +" : "▼ −") + (points ? dec1.format(Math.abs(diff)) + " pt" : pct(Math.abs(diff)));
+    return h("span", { class: `delta ${cls}`, text: txt }, h("small", { text: "vs période préc." }));
+  }
+  function sparkline(values) {
+    const w = 110, hgt = 30, max = Math.max(...values), min = Math.min(...values);
+    if (values.length < 2 || max === min) return null;
+    const x = (i) => 3 + (i * (w - 6)) / (values.length - 1), y = (v) => hgt - 3 - ((v - min) / (max - min)) * (hgt - 6);
+    const pts = values.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+    return s("svg", { class: "spark", width: w, height: hgt, viewBox: `0 0 ${w} ${hgt}`, "aria-hidden": "true" },
+      s("polyline", { points: pts, fill: "none", stroke: cssVar("axis"), "stroke-width": 1.5, "stroke-linejoin": "round", "stroke-linecap": "round" }),
+      s("circle", { cx: x(values.length - 1), cy: y(values[values.length - 1]), r: 3.5, fill: cssVar("series-1"), stroke: cssVar("surface"), "stroke-width": 2 }));
+  }
+  function kpi({ label, value, delta, note, spark, hero }) {
+    return h("div", { class: "kpi" + (hero ? " hero" : "") },
+      h("div", { class: "kpi-label", text: label }),
+      h("div", { class: "kpi-value", text: value }),
+      h("div", { class: "kpi-foot" }, h("div", null, delta, note && h("div", { class: "kpi-note", text: note })), spark));
+  }
+  function segmented(parts, valueFmt, wide) {
+    const total = sum(parts, (p) => p.value) || 1;
+    const bar = h("div", { class: "segbar", role: "img", "aria-label": parts.map((p) => `${p.name} ${pct(p.value / total, 0)}`).join(", ") },
+      parts.filter((p) => p.value > 0).map((p) => {
+        const share = p.value / total;
+        return hover(h("div", { style: `flex:${p.value} 1 0;background:${p.color};${p.dark ? "color:#0b0b0b" : ""}`, text: share >= 0.09 ? pct(share, 0) : "" }),
+          (e) => tip.show(e, p.name, [{ value: valueFmt(p.value), label: pct(share) + " du total", color: p.color }]));
+      }));
+    const cells = (p) => [h("span", { class: "key", style: `background:${p.color}` }), h("span", { text: p.name }),
+      h("span", { class: "v", text: valueFmt(p.value) }), h("span", { class: "p", text: pct(p.value / total) })];
+    const list = wide ? h("div", { class: "seglist-wide" }, parts.map((p) => h("div", { class: "segrow" }, cells(p))))
+      : h("div", { class: "seglist" }, parts.map(cells));
+    return h("div", null, bar, list);
+  }
+  const SERIES = ["series-1", "series-2", "series-3", "series-4"];
+  /* La couleur suit l'entité : l'ordre est fixé sur tout l'historique, pas sur la période affichée. */
+  function entityOrder(rows, key, valueKey) {
+    const totals = new Map();
+    for (const r of rows) totals.set(r[key], (totals.get(r[key]) || 0) + r[valueKey]);
+    return [...totals.entries()].sort((a, b) => b[1] - a[1]).map((e) => e[0]);
+  }
+  const CHANNEL_ORDER = entityOrder(CHANNELS, "order_type", "net_sales");
+  const TENDER_ORDER = entityOrder(TENDERS, "tender_type", "total_collected");
+  const CATEGORY_ORDER = entityOrder(PRODUCT_DAILY.map((r) => ({ c: PRODUCTS.get(r.product_id).category, v: r.net_sales })), "c", "v");
+  function foldParts(order, valueOf) {
+    const parts = order.slice(0, 4).map((name, i) => ({ name, value: valueOf(name), color: cssVar(SERIES[i]), dark: i === 3 }));
+    const rest = sum(order.slice(4), valueOf);
+    if (rest > 0) parts.push({ name: "Autres", value: rest, color: cssVar("axis"), dark: true });
+    return parts;
+  }
+
+  /* ---------- graphique : ventes par jour ---------- */
+  function trendChart(days, width) {
+    const W = Math.max(320, width), H = 290, m = { l: 58, r: 14, t: 22, b: 28 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+    const max = Math.max(...days.map((d) => d.net_sales), 1);
+    const ticks = niceTicks(max), top = ticks[ticks.length - 1];
+    const band = iw / days.length, x = (i) => m.l + i * band + band / 2, y = (v) => m.t + ih - (v / top) * ih;
+    const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Ventes nettes par jour et moyenne mobile sur 7 jours" });
+    for (const t of ticks) {
+      svg.append(s("line", { class: t === 0 ? "baseline" : "gridline", x1: m.l, x2: W - m.r, y1: y(t), y2: y(t) }),
+        s("text", { class: "t-axis", x: m.l - 8, y: y(t) + 4, "text-anchor": "end", text: int.format(t) + " $" }));
+    }
+    const bw = Math.max(1, Math.min(24, band - (band > 5 ? 2 : 0.6)));
+    days.forEach((d, i) => {
+      if (d.net_sales <= 0) return;
+      const yy = y(d.net_sales), r = Math.min(4, bw / 2);
+      svg.append(s("path", { fill: cssVar("soft-bar"), d: `M${x(i) - bw / 2},${y(0)}V${yy + r}q0,${-r} ${r},${-r}h${bw - 2 * r}q${r},0 ${r},${r}V${y(0)}z` }));
+    });
+    svg.append(s("polyline", { fill: "none", stroke: cssVar("series-1"), "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round",
+      points: days.map((d, i) => (d.net_sales_7d_avg == null ? null : `${x(i).toFixed(1)},${y(d.net_sales_7d_avg).toFixed(1)}`)).filter(Boolean).join(" ") }));
+    /* graduations de l'axe des dates */
+    const every = days.length <= 31 ? 5 : days.length <= 100 ? 14 : 0;
+    days.forEach((d, i) => {
+      const isTick = every ? (days.length - 1 - i) % every === 0 : d.date_day.endsWith("-01");
+      if (!isTick) return;
+      const anchor = x(i) < m.l + 24 ? "start" : x(i) > W - m.r - 24 ? "end" : "middle";
+      svg.append(s("text", { class: "t-axis", x: x(i), y: H - 8, "text-anchor": anchor, text: every ? dShort(d.date_day) : dMonth(d.date_day) }));
+    });
+    /* étiquette directe : le meilleur jour */
+    const best = days.reduce((a, d, i) => (d.net_sales > a.v ? { v: d.net_sales, i } : a), { v: -1, i: 0 });
+    const bx = x(best.i), anchor = bx > W - 170 ? "end" : bx < m.l + 80 ? "start" : "middle";
+    svg.append(s("text", { class: "t-label", x: bx, y: y(best.v) - 7, "text-anchor": anchor, text: `Record : ${dShort(days[best.i].date_day)} · ${money0.format(best.v)}` }));
+    /* survol : le réticule trouve le jour */
+    const cross = s("line", { class: "baseline", y1: m.t, y2: y(0), visibility: "hidden" });
+    const dot = s("circle", { r: 4.5, fill: cssVar("series-1"), stroke: cssVar("surface"), "stroke-width": 2, visibility: "hidden" });
+    const hit = s("rect", { x: m.l, y: m.t, width: iw, height: ih, fill: "transparent" });
+    hit.addEventListener("pointermove", (e) => {
+      const box = svg.getBoundingClientRect(), px = ((e.clientX - box.left) / box.width) * W;
+      const i = Math.max(0, Math.min(days.length - 1, Math.floor((px - m.l) / band))), d = days[i];
+      cross.setAttribute("x1", x(i)); cross.setAttribute("x2", x(i)); cross.setAttribute("visibility", "visible");
+      const hasAvg = d.net_sales_7d_avg != null;
+      dot.setAttribute("cx", x(i)); dot.setAttribute("cy", y(d.net_sales_7d_avg || 0)); dot.setAttribute("visibility", hasAvg ? "visible" : "hidden");
+      tip.show(e, dLong(d.date_day), d.orders
+        ? [{ value: money0.format(d.net_sales), label: "ventes nettes", color: cssVar("soft-bar") },
+           ...(hasAvg ? [{ value: money0.format(d.net_sales_7d_avg), label: "moyenne 7 jours", color: cssVar("series-1") }] : []),
+           { value: int.format(d.orders), label: "commandes" }]
+        : [{ value: "Fermé", label: "aucune commande" }]);
+    });
+    hit.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); tip.hide(); });
+    svg.append(cross, dot, hit);
+    return h("div", null,
+      h("div", { class: "legend" },
+        h("span", null, h("span", { class: "key", style: `background:${cssVar("soft-bar")}` }), "Ventes du jour"),
+        h("span", null, h("span", { class: "key line", style: `background:${cssVar("series-1")}` }), "Moyenne mobile sur 7 jours")),
+      h("div", { class: "chart" }, svg));
+  }
+
+  /* ---------- graphique : colonnes (une ou plusieurs séries empilées) ---------- */
+  function columns(groups, seriesList, width, { height = 250, valueFmt = (v) => money0.format(v), labelCaps = false } = {}) {
+    const W = Math.max(300, width), H = height, m = { l: 58, r: 10, t: 20, b: 28 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+    const totals = groups.map((g) => sum(seriesList, (se) => g.values[se.name] || 0));
+    const ticks = niceTicks(Math.max(...totals, 1)), top = ticks[ticks.length - 1];
+    const band = iw / groups.length, bw = Math.max(2, Math.min(24, band - 4));
+    const y = (v) => m.t + ih - (v / top) * ih;
+    const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, role: "img" });
+    for (const t of ticks) {
+      svg.append(s("line", { class: t === 0 ? "baseline" : "gridline", x1: m.l, x2: W - m.r, y1: y(t), y2: y(t) }),
+        s("text", { class: "t-axis", x: m.l - 8, y: y(t) + 4, "text-anchor": "end", text: int.format(t) + " $" }));
+    }
+    const labelEvery = Math.ceil(groups.length / Math.max(1, Math.floor(iw / 50)));
+    groups.forEach((g, i) => {
+      const cx = m.l + i * band + band / 2;
+      let acc = 0;
+      const present = seriesList.filter((se) => (g.values[se.name] || 0) > 0);
+      present.forEach((se, k) => {
+        const v = g.values[se.name], y0 = y(acc), y1 = y(acc + v), isTop = k === present.length - 1;
+        acc += v;
+        const gap = k > 0 ? 2 : 0, hgt = Math.max(1, y0 - y1 - gap), r = isTop ? Math.min(4, bw / 2, hgt) : 0;
+        const yy = y0 - gap - hgt;
+        svg.append(s("path", { fill: se.color, d: `M${cx - bw / 2},${yy + hgt}V${yy + r}q0,${-r} ${r},${-r}h${bw - 2 * r}q${r},0 ${r},${r}V${yy + hgt}z` }));
+      });
+      if (labelCaps && totals[i] > 0) svg.append(s("text", { class: "t-label", x: cx, y: y(totals[i]) - 6, "text-anchor": "middle", text: valueFmt(totals[i]) }));
+      if (i % labelEvery === 0) svg.append(s("text", { class: "t-axis", x: cx, y: H - 8, "text-anchor": "middle", text: g.short || g.label }));
+      const hit = s("rect", { x: m.l + i * band, y: m.t, width: band, height: ih, fill: "transparent" });
+      hover(hit, (e) => tip.show(e, g.label, [
+        ...seriesList.filter((se) => g.values[se.name] != null).map((se) => ({ value: valueFmt(g.values[se.name]), label: se.name, color: se.color })),
+        ...(seriesList.length > 1 ? [{ value: valueFmt(totals[i]), label: "total" }] : [])]));
+      svg.append(hit);
+    });
+    return h("div", { class: "chart" }, svg);
+  }
+
+  /* ---------- graphique : affluence ---------- */
+  function heatmap(w) {
+    const rows = within(HOURLY, "order_date", w);
+    const openDays = [0, 0, 0, 0, 0, 0, 0];
+    for (const d of within(DAILY, "date_day", w)) if (d.orders > 0) openDays[d.iso_weekday - 1]++;
+    const hours = [...new Set(HOURLY.map((r) => r.order_hour))].sort((a, b) => a - b);
+    const grid = WEEKDAYS.map(() => new Map());
+    for (const r of rows) {
+      const wd = (toDate(r.order_date).getUTCDay() + 6) % 7;
+      grid[wd].set(r.order_hour, (grid[wd].get(r.order_hour) || 0) + r.orders);
+    }
+    let max = 0, peak = null;
+    const avg = (wd, hr) => (grid[wd].has(hr) && openDays[wd] ? grid[wd].get(hr) / openDays[wd] : null);
+    WEEKDAYS.forEach((_, wd) => hours.forEach((hr) => { const v = avg(wd, hr); if (v > max) { max = v; peak = [wd, hr]; } }));
+    const bin = (v) => Math.min(6, Math.max(1, Math.ceil((v / max) * 6)));
+    const root = h("div", { class: "heat", style: `grid-template-columns:auto repeat(${hours.length}, minmax(0, 1fr))` });
+    WEEKDAYS.forEach((name, wd) => {
+      root.append(h("div", { class: "hl", text: WD_SHORT[wd] }));
+      hours.forEach((hr) => {
+        const v = avg(wd, hr), isPeak = peak && peak[0] === wd && peak[1] === hr;
+        const cell = h("div", { class: "cell", style: v ? `background:${cssVar("seq-" + bin(v))};color:${bin(v) >= 4 ? "var(--on-fill)" : "var(--ink)"}` : null, text: isPeak ? dec1.format(v) : "" });
+        root.append(hover(cell, (e) => tip.show(e, `${name}, ${hr} h à ${hr + 1} h`, v ? [{ value: dec1.format(v), label: "commandes par heure, en moyenne" }] : [{ value: "Fermé", label: "" }])));
+      });
+    });
+    root.append(h("div"), ...hours.map((hr) => h("div", { class: "hh", text: hr + " h" })));
+    const scale = h("div", { class: "heat-scale" }, "moins", h("div", { class: "steps" }, [1, 2, 3, 4, 5, 6].map((i) => h("i", { style: `background:${cssVar("seq-" + i)}` }))),
+      `plus · pointe : ${peak ? `${WEEKDAYS[peak[0]]} ${peak[1]} h, ${dec1.format(max)} commandes par heure` : "—"}`);
+    const table = { cols: [{ label: "Jour" }, ...hours.map((hr) => ({ label: hr + " h", num: true }))],
+      rows: WEEKDAYS.map((name, wd) => [name, ...hours.map((hr) => { const v = avg(wd, hr); return v ? dec1.format(v) : "—"; })]) };
+    return { node: h("div", null, root, scale), table };
+  }
+
+  /* ---------- onglet Ventes ---------- */
+  function viewVentes(width) {
+    const w = windowOf(state.days), days = within(DAILY, "date_day", w), prev = w.prev ? within(DAILY, "date_day", w.prev) : null;
+    const agg = (rows) => rows && {
+      net: sum(rows, (d) => d.net_sales), orders: sum(rows, (d) => d.orders), tips: sum(rows, (d) => d.tip_amount),
+      gross: sum(rows, (d) => d.gross_sales), cut: sum(rows, (d) => d.discount_amount + d.refund_amount), items: sum(rows, (d) => d.items) };
+    const a = agg(days), p = agg(prev);
+    const bk = buckets(days, state.days);
+    const kpis = h("div", { class: "kpis" },
+      kpi({ hero: true, label: "Ventes nettes, hors taxes", value: money0.format(a.net), delta: deltaNode(a.net, p && p.net), spark: sparkline(days.map((d) => d.net_sales_7d_avg).filter((v) => v != null)) }),
+      kpi({ label: "Commandes", value: int.format(a.orders), delta: deltaNode(a.orders, p && p.orders), note: `${dec1.format(a.orders / Math.max(1, days.filter((d) => d.orders > 0).length))} par jour d'ouverture` }),
+      kpi({ label: "Panier moyen", value: money2.format(a.net / Math.max(1, a.orders)), delta: deltaNode(a.net / Math.max(1, a.orders), p && p.net / Math.max(1, p.orders)), note: `${dec1.format(a.items / Math.max(1, a.orders))} articles par commande` }),
+      kpi({ label: "Pourboires", value: money0.format(a.tips), delta: deltaNode(a.tips, p && p.tips), note: `${pct(a.tips / Math.max(1, a.net))} des ventes nettes` }),
+      kpi({ label: "Rabais et remboursements", value: pct(a.cut / Math.max(1, a.gross)), delta: deltaNode(a.cut / Math.max(1, a.gross), p && p.cut / Math.max(1, p.gross), { upIsGood: false, points: true }), note: `${money0.format(a.cut)} sur les ventes brutes` }));
+
+    const trendTable = { cols: [{ label: "Période" }, { label: "Ventes nettes", num: true }, { label: "Commandes", num: true }, { label: "Panier moyen", num: true }],
+      rows: bk.map((b) => { const n = sum(b.days, (d) => d.net_sales), o = sum(b.days, (d) => d.orders); return [b.label, money0.format(n), int.format(o), o ? money2.format(n / o) : "—"]; }) };
+
+    /* jours de la semaine */
+    const byWd = WEEKDAYS.map((name, i) => { const ds = days.filter((d) => d.iso_weekday === i + 1 && d.orders > 0); return { label: name, short: WD_SHORT[i], values: { "Ventes nettes": ds.length ? sum(ds, (d) => d.net_sales) / ds.length : 0 } }; });
+    const bestWd = byWd.reduce((x, y) => (y.values["Ventes nettes"] > x.values["Ventes nettes"] ? y : x));
+    const wdTable = { cols: [{ label: "Jour" }, { label: "Ventes nettes moyennes", num: true }], rows: byWd.map((g) => [g.label, money0.format(g.values["Ventes nettes"])]) };
+
+    /* types de commande */
+    const ch = within(CHANNELS, "order_date", w), chSeries = CHANNEL_ORDER.slice(0, 4).map((name, i) => ({ name, color: cssVar(SERIES[i]) }));
+    const chGroups = bk.map((b) => ({ label: b.label, short: state.days <= 31 ? b.label : state.days <= 100 ? dShort(b.key) : b.label, values: {} })), idx = new Map(bk.map((b, i) => [b.key, i]));
+    for (const r of ch) { const g = chGroups[idx.get(bucketKey(r.order_date, state.days))]; if (g) g.values[r.order_type] = (g.values[r.order_type] || 0) + r.net_sales; }
+    const chTotal = sum(ch, (r) => r.net_sales) || 1;
+    const chLegend = h("div", { class: "legend" }, chSeries.map((se) => h("span", null, h("span", { class: "key", style: `background:${se.color}` }), `${se.name} · ${pct(sum(ch.filter((r) => r.order_type === se.name), (r) => r.net_sales) / chTotal, 0)}`)));
+    const chTable = { cols: [{ label: "Type de commande" }, { label: "Ventes nettes", num: true }, { label: "Commandes", num: true }, { label: "Panier moyen", num: true }, { label: "Pourboires", num: true }],
+      rows: CHANNEL_ORDER.map((name) => { const rs = ch.filter((r) => r.order_type === name), n = sum(rs, (r) => r.net_sales), o = sum(rs, (r) => r.orders); return [name, money0.format(n), int.format(o), o ? money2.format(n / o) : "—", money0.format(sum(rs, (r) => r.tip_amount))]; }) };
+
+    /* moyens de paiement */
+    const tn = within(TENDERS, "order_date", w);
+    const tenderParts = foldParts(TENDER_ORDER, (name) => sum(tn.filter((r) => r.tender_type === name), (r) => r.total_collected));
+
+    const heat = heatmap(w);
+    const share = (n) => pct(n / Math.max(1, a.orders));
+    const leakNode = tableNode({ cols: [{ label: "" }, { label: "Commandes", num: true }, { label: "Part", num: true }, { label: "Montant", num: true }], rows: [
+      ["Avec un rabais", int.format(sum(days, (d) => d.discounted_orders)), share(sum(days, (d) => d.discounted_orders)), money0.format(sum(days, (d) => d.discount_amount))],
+      ["Remboursées", int.format(sum(days, (d) => d.refunded_orders)), share(sum(days, (d) => d.refunded_orders)), money0.format(sum(days, (d) => d.refund_amount))]] });
+    return [kpis,
+      card("trend", "c12", "Ventes nettes par jour", "La moyenne mobile lisse l'effet du week-end et montre la vraie tendance.", trendChart(days, width - 42), trendTable),
+      card("heat", "c7", "Affluence par heure", "Commandes par heure en moyenne, pour chaque jour de la semaine : de quoi caler les quarts de travail.", heat.node, heat.table),
+      card("weekday", "c5", "Une journée type, selon le jour", `Ventes nettes moyennes d'une journée d'ouverture. Le ${bestWd.label} est le meilleur jour.`,
+        columns(byWd, [{ name: "Ventes nettes", color: cssVar("series-1") }], width > 980 ? (width - 16) * 5 / 12 - 42 : width - 42, { height: 318, labelCaps: true }), wdTable),
+      card("channel", "c7 r2", "Sur place, à emporter, livraison", "Ventes nettes par type de commande. Le pourcentage indique la part de chaque type sur la période.",
+        h("div", null, chLegend, columns(chGroups, chSeries, width > 980 ? (width - 16) * 7 / 12 - 42 : width - 42, { height: 300 })), chTable),
+      card("tender", "c5", "Moyens de paiement", "Montants encaissés, taxes et pourboires compris.", segmented(tenderParts, (v) => money0.format(v))),
+      card("leak", "c5", "Rabais et remboursements", "Ce qui sépare les ventes brutes des ventes nettes.", leakNode)];
+  }
+
+  /* ---------- onglet Carte ---------- */
+  function scatter(items, width) {
+    const W = Math.max(320, width), H = 380, m = { l: 56, r: 24, t: 26, b: 44 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+    const xs = items.map((d) => d.mix_share), ys = items.map((d) => d.unit_margin), thX = items[0].popularity_threshold, thY = items[0].category_unit_margin;
+    const xMax = Math.max(...xs) * 1.18, yMin = Math.min(...ys, thY), yMax = Math.max(...ys, thY), pad = (yMax - yMin) * 0.22 || 1;
+    const y0 = yMin - pad, y1 = yMax + pad;
+    const x = (v) => m.l + (v / xMax) * iw, y = (v) => m.t + ih - ((v - y0) / (y1 - y0)) * ih;
+    const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Popularité et marge unitaire de chaque pizza" });
+    svg.append(s("rect", { x: m.l, y: m.t, width: iw, height: ih, fill: "none", stroke: cssVar("grid") }));
+    for (const t of niceTicks(xMax, 5)) if (t > 0 && t < xMax) svg.append(s("text", { class: "t-axis", x: x(t), y: H - 24, "text-anchor": "middle", text: pct(t, 0) }));
+    const yStep = (y1 - y0) > 4 ? 1 : 0.5;
+    for (let t = Math.ceil(y0 / yStep) * yStep; t <= y1; t += yStep) svg.append(s("text", { class: "t-axis", x: m.l - 8, y: y(t) + 4, "text-anchor": "end", text: money2.format(t) }));
+    svg.append(s("text", { class: "t-axis", x: m.l + iw / 2, y: H - 6, "text-anchor": "middle", text: "Popularité : part des pizzas vendues →" }));
+    svg.append(s("text", { class: "t-axis", x: m.l, y: 12, text: "Marge par pizza ↑" }));
+    svg.append(s("line", { class: "baseline", x1: x(thX), x2: x(thX), y1: m.t, y2: m.t + ih }), s("line", { class: "baseline", x1: m.l, x2: m.l + iw, y1: y(thY), y2: y(thY) }));
+    [["Énigme", m.l + 10, m.t + 18, "start"], ["Vedette", m.l + iw - 10, m.t + 18, "end"], ["Poids mort", m.l + 10, m.t + ih - 10, "start"], ["Valeur sûre", m.l + iw - 10, m.t + ih - 10, "end"]]
+      .forEach(([t, tx, ty, a]) => svg.append(s("text", { class: "t-quad", x: tx, y: ty, "text-anchor": a, text: t })));
+    /* étiquettes : première position libre autour du point */
+    const boxes = items.map((d) => ({ x0: x(d.mix_share) - 9, x1: x(d.mix_share) + 9, y0: y(d.unit_margin) - 9, y1: y(d.unit_margin) + 9 }));
+    const overlaps = (b) => boxes.some((o) => b.x0 < o.x1 && b.x1 > o.x0 && b.y0 < o.y1 && b.y1 > o.y0);
+    [...items].sort((p, q) => q.mix_share - p.mix_share).forEach((d) => {
+      const name = d.product_name.replace(/^Pizza /, ""), tw = name.length * 6.6 + 4, px = x(d.mix_share), py = y(d.unit_margin);
+      const cands = [["start", px + 11, py + 4], ["end", px - 11, py + 4], ["middle", px, py - 12], ["middle", px, py + 22]];
+      let pick = cands[0], box = null;
+      for (const c of cands) {
+        const bx0 = c[0] === "start" ? c[1] : c[0] === "end" ? c[1] - tw : c[1] - tw / 2;
+        const b = { x0: bx0, x1: bx0 + tw, y0: c[2] - 11, y1: c[2] + 3 };
+        if (b.x0 >= m.l + 2 && b.x1 <= m.l + iw - 2 && b.y0 >= m.t + 2 && b.y1 <= m.t + ih - 2 && !overlaps(b)) { pick = c; box = b; break; }
+      }
+      if (box) boxes.push(box);
+      svg.append(s("text", { class: "t-label", x: pick[1], y: pick[2], "text-anchor": pick[0], text: name }));
+    });
+    items.forEach((d) => {
+      svg.append(s("circle", { cx: x(d.mix_share), cy: y(d.unit_margin), r: 6, fill: cssVar("series-1"), stroke: cssVar("surface"), "stroke-width": 2 }));
+      svg.append(hover(s("circle", { cx: x(d.mix_share), cy: y(d.unit_margin), r: 15, fill: "transparent" }), (e) => tip.show(e, `${d.product_name} — ${d.menu_class}`, [
+        { value: pct(d.mix_share), label: "des pizzas vendues" }, { value: money2.format(d.unit_margin), label: "de marge par pizza" }, { value: int.format(d.quantity_sold), label: "vendues" }], d.recommended_action)));
+    });
+    return h("div", { class: "chart" }, svg);
+  }
+  const KLASS_ICON = { "Vedette": "★", "Valeur sûre": "●", "Énigme": "◆", "Poids mort": "▽" };
+
+  function viewCarte(width) {
+    const w = windowOf(state.days), rows = within(PRODUCT_DAILY, "order_date", w);
+    const by = new Map();
+    for (const r of rows) {
+      const o = by.get(r.product_id) || { id: r.product_id, qty: 0, net: 0, cost: 0, extras: 0 };
+      o.qty += r.quantity; o.net += r.net_sales; o.cost += r.estimated_cost || 0; o.extras += r.lines_with_extras; by.set(r.product_id, o);
+    }
+    const list = [...by.values()].map((o) => ({ ...o, ...PRODUCTS.get(o.id) })).sort((p, q) => q.net - p.net);
+    const net = sum(list, (o) => o.net), qty = sum(list, (o) => o.qty), cost = sum(list, (o) => o.cost);
+    const pizzas = list.filter((o) => o.category === "Pizzas"), pizzaQty = sum(pizzas, (o) => o.qty);
+    const newest = [...PRODUCTS.values()].filter((p) => p.first_sold_date > META.first_day).sort((p, q) => (q.first_sold_date > p.first_sold_date ? 1 : -1))[0];
+    const newestRank = newest ? list.findIndex((o) => o.id === newest.product_id) + 1 : 0;
+    const kpis = h("div", { class: "kpis four" },
+      kpi({ label: "Articles vendus", value: int.format(qty), note: `${list.length} produits à la carte` }),
+      kpi({ label: "Coût matière estimé", value: pct(cost / Math.max(1, net)), note: "des ventes nettes, selon le catalogue des coûts" }),
+      kpi({ label: "Pizzas avec un extra", value: pct(sum(pizzas, (o) => o.extras) / Math.max(1, pizzaQty)), note: "extra fromage, champignons, sans gluten…" }),
+      kpi({ label: "Dernière nouveauté", value: newest ? newest.product_name.replace(/^Pizza /, "") : "—", note: newest ? `à la carte depuis le ${dFull(newest.first_sold_date)}` + (newestRank ? ` · ${newestRank}ᵉ vente de la période` : "") : "" }));
+
+    const top = list.slice(0, 10), topMax = top.length ? top[0].net : 1;
+    const rank = h("div", { class: "rank" }, top.map((o) => [
+      h("div", { class: "name" }, o.product_name, h("small", { text: o.category })),
+      hover(h("div", { class: "track" }, h("div", { class: "bar", style: `width:${(o.net / topMax) * 100}%` })), (e) => tip.show(e, o.product_name, [
+        { value: money0.format(o.net), label: "ventes nettes" }, { value: int.format(o.qty), label: "unités" }, { value: pct(o.net / Math.max(1, net)), label: "des ventes" }])),
+      h("div", { class: "val", text: money0.format(o.net) }), h("div", { class: "sub", text: int.format(o.qty) + " u." })]));
+    const catParts = foldParts(CATEGORY_ORDER, (c) => sum(list.filter((o) => o.category === c), (o) => o.net));
+
+    const menuPizzas = MENU.filter((d) => d.category === "Pizzas");
+    const menuTable = { cols: [{ label: "Produit" }, { label: "Catégorie", cls: "muted" }, { label: "Vendus", num: true }, { label: "Part", num: true }, { label: "Marge unitaire", num: true }, { label: "Classement" }, { label: "Piste d'action", cls: "muted" }],
+      rows: MENU.map((d) => [d.product_name, d.category, int.format(d.quantity_sold), pct(d.mix_share), money2.format(d.unit_margin),
+        h("span", { class: "klass" }, h("span", { "aria-hidden": "true", text: KLASS_ICON[d.menu_class] || "" }), d.menu_class), d.recommended_action]) };
+
+    const pairs = PAIRS.filter((p) => p.lift > 1.1).slice(0, 8), liftMax = Math.max(...pairs.map((p) => p.lift), 1);
+    const pairsNode = pairs.length ? tableNode({ cols: [{ label: "Paire" }, { label: "Commandes ensemble", num: true }, { label: "Fréquence par rapport au hasard" }],
+      rows: pairs.map((p) => [`${p.product_a_name} + ${p.product_b_name}`, int.format(p.orders_together),
+        h("div", { class: "meter" }, h("div", { class: "track" }, h("div", { class: "fill", style: `width:${(p.lift / liftMax) * 100}%` })), h("b", { text: "× " + dec1.format(p.lift) }))]) })
+      : h("div", { class: "empty", text: "Pas encore assez de commandes pour faire ressortir des associations." });
+
+    const windowDays = 90;
+    const KLASS_TEXT = { "Vedette": "populaire et rentable", "Valeur sûre": "populaire, marge sous la moyenne", "Énigme": "rentable, mais peu commandée", "Poids mort": "peu commandée et peu rentable" };
+    const reading = h("ul", { class: "checks reading" }, Object.keys(KLASS_TEXT).map((k) => {
+      const items = menuPizzas.filter((d) => d.menu_class === k);
+      return h("li", null, h("span", { class: "glyph", "aria-hidden": "true", text: KLASS_ICON[k] }),
+        h("div", null, h("b", { text: k }), ` — ${KLASS_TEXT[k]}`,
+          h("div", { class: "names", text: items.length ? items.map((d) => d.product_name.replace(/^Pizza /, "")).join(", ") : "aucune pizza" }),
+          items.length ? h("small", { text: items[0].recommended_action }) : null), h("span"));
+    }));
+    return [kpis,
+      card("top", "c7", "Les 10 produits qui rapportent le plus", "Ventes nettes sur la période, rabais et remboursements déduits.", rank,
+        { cols: [{ label: "Produit" }, { label: "Catégorie", cls: "muted" }, { label: "Unités", num: true }, { label: "Ventes nettes", num: true }, { label: "Part", num: true }],
+          rows: list.map((o) => [o.product_name, o.category, int.format(o.qty), money0.format(o.net), pct(o.net / Math.max(1, net))]) }),
+      card("pairs", "c5", "Souvent commandés ensemble", `Associations plus fréquentes que le hasard sur les ${windowDays} derniers jours : des idées de suggestions et de formules.`, pairsNode),
+      card("cats", "c12", "Répartition par catégorie", "Part de chaque catégorie dans les ventes nettes de la période.", segmented(catParts, (v) => money0.format(v), true)),
+      card("matrix", "c7", "Quelles pizzas pousser, lesquelles revoir", `Chaque pizza selon sa popularité et sa marge, sur les ${windowDays} derniers jours. Les deux lignes sont les seuils de la méthode Kasavana-Smith.`,
+        menuPizzas.length ? scatter(menuPizzas, width > 980 ? (width - 16) * 7 / 12 - 42 : width - 42) : h("div", { class: "empty", text: "Aucun coût renseigné pour les pizzas." })),
+      card("reading", "c5", "Lecture de la matrice", "Quatre familles, quatre décisions.", reading),
+      card("menu", "c12", "Classement complet de la carte", "Chaque produit est comparé aux autres produits de sa catégorie.", tableNode(menuTable))];
+  }
+
+  /* ---------- onglet Fiabilité ---------- */
+  function viewFiabilite() {
+    const last = RUNS[0];
+    const when = (iso) => new Intl.DateTimeFormat(LOCALE, { dateStyle: "long", timeStyle: "short" }).format(new Date(iso));
+    const out = [];
+    const tiles = [];
+    if (Q) {
+      const t = Q.totals, total = t.pass + t.warn + t.fail;
+      tiles.push(kpi({ label: "Contrôles réussis", value: `${int.format(t.pass)} / ${int.format(total)}`, note: t.fail ? `${t.fail} en échec : les chiffres sont à vérifier` : t.warn ? `${t.warn} avertissement(s)` : "à la dernière exécution" }));
+    }
+    if (last) tiles.push(kpi({ label: "Dernier chargement", value: last.status === "success" ? "Réussi" : last.status === "failed" ? "Échec" : "En cours", note: `${when(last.finished_at || last.started_at)} · ${int.format(last.rows_processed || 0)} lignes` }));
+    if (Q) {
+      tiles.push(kpi({ label: "Tables et vues", value: int.format(Q.layers.staging + Q.layers.intermediate + Q.layers.marts), note: `${Q.layers.marts} tables d'analyse, ${Q.layers.staging + Q.layers.intermediate} vues de préparation` }));
+      tiles.push(kpi({ label: "Moteur", value: META.engine === "snowflake" ? "Snowflake" : "DuckDB", note: `${META.engine === "snowflake" ? "entrepôt du projet" : "exécution locale de démonstration"} · dbt ${Q.dbt_version}` }));
+    }
+    if (tiles.length) out.push(h("div", { class: "kpis " + (tiles.length === 4 ? "four" : "three") }, tiles));
+
+    const L = Q ? Q.layers : null;
+    out.push(card("flow", "c12", "Du ticket de caisse au tableau de bord", "Chaque étape est rejouable : relancer le pipeline ne crée jamais de doublon.", h("div", { class: "flow" },
+      [["Caisse Clover", "API", "Chaque nuit, les commandes modifiées depuis le dernier passage sont relues."],
+       ["Données brutes", "RAW", `Le JSON de la caisse est conservé tel quel${Q ? `, dans ${Q.sources} tables` : ""}. Rien n'est perdu.`],
+       ["Préparation", "STAGING", `${L ? L.staging + L.intermediate : "Des"} vues : noms clairs, heure du restaurant, extras, rabais et remboursements dépliés.`],
+       ["Analyse", "ANALYTICS", `${L ? L.marts : "Des"} tables documentées, prêtes à interroger : commandes, articles, rapports quotidiens.`],
+       ["Cockpit", "HTML", "Cette page, régénérée après chaque exécution. La consulter ne coûte rien."]]
+        .map(([t, wh, d]) => h("div", { class: "step" }, h("b", { text: t }), h("span", { class: "where", text: wh }), h("p", { text: d }))))));
+
+    if (Q) {
+      const ic = (st) => h("span", { class: "ic " + (st === "pass" ? "" : st), "aria-label": st === "pass" ? "réussi" : st === "warn" ? "avertissement" : "échec", text: st === "pass" ? "✓" : st === "warn" ? "!" : "×" });
+      const stOf = (g) => (g.fail ? "fail" : g.warn ? "warn" : "pass");
+      const pretty = (name) => name.replace(/^assert_/, "").replace(/_/g, " ");
+      out.push(card("tests", "c7", "Ce qui est vérifié à chaque exécution", "Si une règle échoue, le pipeline s'arrête avant que le chiffre faux n'arrive ici.", h("div", null,
+        h("div", { class: "sub-h", text: "Règles métier" }),
+        h("ul", { class: "checks" }, Q.rules.map((r) => h("li", null, ic(r.status), h("div", null, r.description || pretty(r.name), h("small", { class: "mono", text: r.name })), h("span")))),
+        h("div", { class: "sub-h", text: "Calculs testés sur des cas d'école" }),
+        h("ul", { class: "checks" }, Q.unit_tests.map((r) => h("li", null, ic(r.status), h("div", null, r.description || pretty(r.name), h("small", { class: "mono", text: r.name })), h("span")))),
+        h("div", { class: "sub-h", text: "Contrôles de structure" }),
+        h("ul", { class: "checks" }, Q.groups.map((g) => h("li", null, ic(stOf(g)), h("div", { text: g.label }), h("span", { class: "n", text: `${g.pass} / ${g.pass + g.warn + g.fail}` })))))));
+      out.push(card("glossary", "c5", "Comment lire les chiffres", "Les mêmes définitions partout, du SQL au tableau de bord.", h("dl", { class: "glossary" },
+        [["Vente brute", "Articles et extras, avant rabais, hors taxes."],
+         ["Vente nette", "Vente brute − rabais − remboursements. Hors taxes (TPS et TVQ) et hors pourboires."],
+         ["Panier moyen", "Ventes nettes divisées par le nombre de commandes payées."],
+         ["Marge unitaire", "Vente nette d'un article − son coût matière estimé."],
+         ["Vedette, Valeur sûre, Énigme, Poids mort", "Classement de la carte : populaire ou non, rentable ou non, au sein de sa catégorie."],
+         ["Fréquence par rapport au hasard", "× 2 : la paire est commandée deux fois plus souvent que si les deux produits étaient choisis indépendamment."]]
+          .map(([t, d]) => h("div", null, h("dt", { text: t }), h("dd", { text: d }))))));
+      out.push(card("marts", "c12", "Les tables que vous pouvez interroger", "Toutes sont documentées colonne par colonne dans la documentation dbt.", tableNode({
+        cols: [{ label: "Table" }, { label: "Contenu", cls: "muted" }, { label: "Lignes", num: true }],
+        rows: Q.marts.map((mt) => [h("span", { class: "mono", text: mt.name }), mt.description, int.format(mt.rows || 0)]) })));
+    } else {
+      out.push(card("noq", "c12", "Résultats de contrôle indisponibles", "Lancez `dbt build` puis régénérez le cockpit pour afficher les contrôles.", h("div", { class: "empty", text: "Aucun résultat dbt trouvé." })));
+    }
+    return out;
+  }
+
+  /* ---------- cadre ---------- */
+  function renderChrome() {
+    document.getElementById("brand-name").textContent = META.client.name;
+    document.getElementById("brand-sub").textContent = META.client.tagline;
+    const ok = Q ? Q.totals.fail === 0 : null;
+    document.getElementById("top-meta").replaceChildren(
+      META.is_demo && h("span", { class: "pill demo" }, h("span", { class: "dot" }), "Données simulées"),
+      ok != null && h("span", { class: "pill " + (ok ? "ok" : "ko") }, h("span", { class: "dot" }), ok ? "Contrôles réussis" : "Contrôles en échec"),
+      h("span", { text: `Données au ${dFull(META.last_day)}` }));
+    document.getElementById("tabs").replaceChildren(...TABS.map((t) => h("button", { class: "tab", role: "tab", type: "button", id: "tab-" + t.id, "aria-selected": String(state.tab === t.id), text: t.label,
+      onclick: () => { state.tab = t.id; try { history.replaceState(null, "", "#" + t.id); } catch (_) { location.hash = t.id; } render(); } })));
+    document.getElementById("footer").replaceChildren(
+      h("span", { text: META.is_demo ? "Données simulées : aucune donnée réelle du restaurant n'apparaît sur cette page." : "Données de la caisse du restaurant." }),
+      h("span", { text: `Page générée le ${new Intl.DateTimeFormat(LOCALE, { dateStyle: "long", timeStyle: "short" }).format(new Date(META.generated_at))}` }));
+  }
+  function renderFilters() {
+    const el = document.getElementById("filters");
+    if (state.tab === "fiabilite") { el.replaceChildren(); el.hidden = true; return; }
+    el.hidden = false;
+    const w = windowOf(state.days);
+    el.replaceChildren(
+      h("div", { class: "seg", role: "group", "aria-label": "Période" }, PERIODS.map((p) => h("button", { type: "button", id: "period-" + p.days, "aria-pressed": String(state.days === p.days), text: p.label,
+        onclick: () => { state.days = p.days; render(); } }))),
+      h("span", { class: "range-note", text: `Du ${dFull(w.start)} au ${dFull(w.end)}` + (w.prev ? `, comparé aux ${state.days} jours précédents` : "") }));
+  }
+  function render() {
+    tip.hide();
+    renderChrome();
+    renderFilters();
+    const view = document.getElementById("view"), width = view.clientWidth || 1200;
+    const nodes = state.tab === "ventes" ? viewVentes(width) : state.tab === "carte" ? viewCarte(width) : viewFiabilite();
+    view.replaceChildren(...nodes);
+  }
+  let resizeTimer = null, lastWidth = 0;
+  addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { const wd = document.getElementById("view").clientWidth; if (wd !== lastWidth) { lastWidth = wd; render(); } }, 150); });
+  addEventListener("hashchange", () => { fromHash(); render(); });
+  fromHash();
+  render();
+  lastWidth = document.getElementById("view").clientWidth;
+})();
+</script>

@@ -1,0 +1,64 @@
+version: 2
+
+models:
+  - name: int_order_lines__priced
+    description: Articles avec leurs extras agrégés. Une ligne par article vendu.
+    columns:
+      - name: line_item_id
+        data_tests: [not_null, unique]
+
+  - name: int_orders__amounts
+    description: >
+      Montants complets de chaque commande en cents : brut, rabais, taxes, pourboires,
+      remboursements. Source unique de la définition des ventes pour tous les marts.
+    columns:
+      - name: order_id
+        data_tests: [not_null, unique]
+
+unit_tests:
+  - name: discount_given_as_percentage_is_converted_to_an_amount
+    description: >
+      Clover peut fournir un rabais sans montant, seulement un pourcentage.
+      Le rabais doit alors valoir pourcentage × vente brute.
+    model: int_orders__amounts
+    given:
+      - input: ref('stg_clover__orders')
+        rows:
+          - {order_id: A, merchant_id: M, order_type: Sur place, total_cents: 2070}
+      - input: ref('int_order_lines__priced')
+        rows:
+          - {line_item_id: L1, order_id: A, gross_cents: 1600}
+          - {line_item_id: L2, order_id: A, gross_cents: 400}
+      - input: ref('stg_clover__discounts')
+        rows:
+          - {discount_id: D1, order_id: A, discount_name: Promo midi, discount_percentage: 10, amount_cents: null}
+      - input: ref('stg_clover__payments')
+        rows:
+          - {payment_id: P1, order_id: A, amount_cents: 2070, tip_cents: 300, tax_cents: 270, payment_result: SUCCESS, tender_type: Débit}
+      - input: ref('stg_clover__refunds')
+        rows: []
+    expect:
+      rows:
+        - {order_id: A, item_count: 2, gross_cents: 2000, discount_cents: 200, tax_cents: 270, tip_cents: 300, refund_net_cents: 0}
+
+  - name: refund_reduces_net_sales_excluding_tax
+    description: Seule la part hors taxes d'un remboursement réduit la vente nette.
+    model: int_orders__amounts
+    given:
+      - input: ref('stg_clover__orders')
+        rows:
+          - {order_id: B, merchant_id: M, order_type: Livraison, total_cents: 2300}
+      - input: ref('int_order_lines__priced')
+        rows:
+          - {line_item_id: L3, order_id: B, gross_cents: 2000}
+      - input: ref('stg_clover__discounts')
+        rows: []
+      - input: ref('stg_clover__payments')
+        rows:
+          - {payment_id: P2, order_id: B, amount_cents: 2300, tip_cents: 0, tax_cents: 300, payment_result: SUCCESS, tender_type: Comptant}
+      - input: ref('stg_clover__refunds')
+        rows:
+          - {refund_id: R1, order_id: B, amount_cents: 2300, tax_cents: 300, tip_cents: 0}
+    expect:
+      rows:
+        - {order_id: B, gross_cents: 2000, refund_count: 1, refund_net_cents: 2000, refund_tax_cents: 300}

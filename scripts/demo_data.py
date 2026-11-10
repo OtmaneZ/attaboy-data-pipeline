@@ -2,7 +2,8 @@
 """Données de démonstration — commandes FICTIVES au format de l'API Clover.
 
 Simule l'activité d'une pizzeria de quartier : menu, horaires, affluence selon
-l'heure et le jour, extras, rabais, taxes du Québec, pourboires, remboursements.
+l'heure, le jour et la saison, événements locaux, tempêtes de neige, extras,
+rabais, taxes du Québec, pourboires, remboursements.
 Aucune donnée réelle. Toutes les lignes portent le merchant_id DEMO_MERCHANT_ID
 et un run_id préfixé « demo- » pour rester identifiables dans Snowflake.
 
@@ -10,6 +11,7 @@ Usage :
     python -m scripts.demo_data --days 120                 # résumé, rien n'est chargé
     python -m scripts.demo_data --days 120 --out demo.json # export JSON
     python -m scripts.demo_data --days 120 --load          # chargement dans RAW (Snowflake)
+    python -m scripts.demo_data --days 365 --local         # chargement dans l'entrepôt local (DuckDB)
 """
 
 from __future__ import annotations
@@ -50,6 +52,7 @@ class MenuItem:
     name: str
     price_cents: int
     weight: float  # popularité relative dans sa catégorie
+    available_from: Optional[date] = None  # None = à la carte depuis toujours
 
 
 PIZZAS = (
@@ -61,6 +64,7 @@ PIZZAS = (
     MenuItem("PIZ06", "Pizza prosciutto roquette", 2200, 1.2),
     MenuItem("PIZ07", "Pizza végane", 1900, 1.0),
     MenuItem("PIZ08", "Pizza du mois", 2100, 0.8),
+    MenuItem("PIZ09", "Pizza miel piquant", 2150, 2.2, available_from=date(2026, 6, 1)),
 )
 ENTREES = (
     MenuItem("ENT01", "Pain à l'ail", 650, 2.0),
@@ -77,13 +81,32 @@ DESSERTS = (
     MenuItem("DES01", "Tiramisu", 700, 1.5),
     MenuItem("DES02", "Cannoli", 500, 1.0),
 )
+ALCOHOL_IDS = {"BOI03", "BOI04"}
+# (pizza, boisson) → multiplicateur de popularité de la boisson quand la pizza est dans la commande.
+DRINK_AFFINITY = {
+    ("PIZ06", "BOI04"): 4.0,  # prosciutto roquette + verre de vin
+    ("PIZ05", "BOI04"): 2.0,
+    ("PIZ02", "BOI03"): 1.8,  # pepperoni + bière
+    ("PIZ03", "BOI03"): 1.8,
+    ("PIZ09", "BOI03"): 2.2,
+    ("PIZ07", "BOI02"): 2.5,  # végane + eau pétillante
+    ("PIZ04", "BOI02"): 2.0,
+}
 EXTRAS = (
     ("MOD01", "Extra fromage", 250, 3.0),
     ("MOD02", "Champignons", 200, 2.0),
     ("MOD03", "Piments forts", 100, 1.5),
     ("MOD04", "Pâte sans gluten", 300, 0.7),
 )
-ORDER_TYPES = (("Sur place", 0.45), ("À emporter", 0.40), ("Livraison", 0.15))
+ORDER_TYPES = ("Sur place", "À emporter", "Livraison")
+# Part de chaque type de commande selon le contexte (même ordre que ORDER_TYPES).
+ORDER_TYPE_WEIGHTS = {
+    "normal": (0.45, 0.40, 0.15),
+    "ete": (0.52, 0.37, 0.11),  # terrasse et touristes
+    "hiver": (0.38, 0.40, 0.22),  # on commande plus de chez soi
+    "tempete": (0.15, 0.35, 0.50),
+    "match": (0.20, 0.45, 0.35),  # soirée de match : on mange devant la télé
+}
 TENDERS = (
     ("Carte de crédit", "com.clover.tender.credit_card", 0.55),
     ("Débit", "com.clover.tender.debit_card", 0.30),
@@ -94,6 +117,15 @@ BASE_ORDERS_PER_DAY = 80
 WEEKDAY_FACTOR = {0: 0.70, 1: 0.75, 2: 0.85, 3: 1.00, 4: 1.35, 5: 1.45, 6: 1.05}
 HOUR_WEIGHTS = {11: 4, 12: 10, 13: 7, 14: 3, 15: 2, 16: 3, 17: 8, 18: 11, 19: 9, 20: 5, 21: 3, 22: 2}
 OPENING_HOUR = 11
+# Saisonnalité : rue Saint-Jean, forte affluence touristique l'été, creux en janvier.
+MONTH_FACTOR = {1: 0.80, 2: 0.90, 3: 0.88, 4: 0.94, 5: 1.02, 6: 1.12, 7: 1.25, 8: 1.20, 9: 1.05, 10: 0.98, 11: 0.90, 12: 1.00}
+ANNUAL_GROWTH = 0.08  # le restaurant gagne de la clientèle d'une année à l'autre
+GROWTH_REFERENCE = date(2026, 1, 1)
+CLOSED_DAYS = {(12, 25), (1, 1)}  # (mois, jour)
+SNOWSTORM_RATE = 0.07  # part des jours de décembre à mars
+SNOWSTORM_FACTOR = 0.60
+WINTER_MONTHS = (12, 1, 2, 3)
+SUMMER_MONTHS = (6, 7, 8)
 REFUND_RATE = 0.01
 LUNCH_PROMO_RATE = 0.06  # promo midi en semaine
 STAFF_DISCOUNT_RATE = 0.02
@@ -102,6 +134,35 @@ STAFF_DISCOUNT_RATE = 0.02
 def closing_hour(day: date) -> int:
     """21 h du dimanche au mercredi, 23 h du jeudi au samedi."""
     return 23 if day.weekday() in (3, 4, 5) else 21
+
+
+def is_closed(day: date) -> bool:
+    return (day.month, day.day) in CLOSED_DAYS
+
+
+def is_match_night(day: date) -> bool:
+    """Deuxième dimanche de février : grande soirée de football à la télé."""
+    return day.month == 2 and day.weekday() == 6 and 8 <= day.day <= 14
+
+
+def event_factor(day: date) -> float:
+    """Événements locaux récurrents (dates approximatives, données simulées)."""
+    md = (day.month, day.day)
+    if is_match_night(day):
+        return 1.55
+    if md == (6, 24):  # Fête nationale
+        return 1.40
+    if (7, 9) <= md <= (7, 19):  # grand festival de musique d'été
+        return 1.25
+    if (2, 6) <= md <= (2, 15):  # carnaval d'hiver
+        return 1.15
+    if md == (12, 31):
+        return 1.30
+    return 1.0
+
+
+def growth_factor(day: date) -> float:
+    return 1 + ANNUAL_GROWTH * (day - GROWTH_REFERENCE).days / 365
 
 
 def cents(value: Decimal) -> int:
@@ -126,8 +187,22 @@ class DemoGenerator:
     def _id(self) -> str:
         return "".join(self.rng.choice(ID_ALPHABET) for _ in range(13))
 
-    def _pick(self, items: Sequence[MenuItem]) -> MenuItem:
+    def _pick(self, items: Sequence[MenuItem], day: Optional[date] = None) -> MenuItem:
+        if day is not None:
+            items = [i for i in items if i.available_from is None or i.available_from <= day]
         return self.rng.choices(items, weights=[i.weight for i in items])[0]
+
+    def _pick_drink(self, pizza_ids: set[str], dine_in: bool) -> MenuItem:
+        """La boisson dépend de la pizza et du lieu : c'est ce qui crée des associations à analyser."""
+        weights = []
+        for drink in DRINKS:
+            w = drink.weight
+            for pizza_id in sorted(pizza_ids):
+                w *= DRINK_AFFINITY.get((pizza_id, drink.item_id), 1.0)
+            if not dine_in and drink.item_id in ALCOHOL_IDS:
+                w *= 0.35
+            weights.append(w)
+        return self.rng.choices(DRINKS, weights=weights)[0]
 
     def _line(self, item: MenuItem, created_ms: int, with_extras: bool = False) -> dict[str, Any]:
         line: dict[str, Any] = {
@@ -159,25 +234,49 @@ class DemoGenerator:
             times.append(local.replace(tzinfo=LOCAL_TZ))
         return sorted(times)
 
-    def orders_for_day(self, day: date) -> list[dict[str, Any]]:
-        expected = BASE_ORDERS_PER_DAY * WEEKDAY_FACTOR[day.weekday()]
-        n = max(1, round(expected * self.rng.uniform(0.85, 1.15)))
-        return [self.order(created, seq) for seq, created in enumerate(self._order_times(day, n), start=1)]
+    def _day_context(self, day: date) -> str:
+        """Contexte du jour : il décide de la répartition sur place / emporter / livraison."""
+        if is_match_night(day):
+            return "match"
+        if day.month in WINTER_MONTHS:
+            return "tempete" if self.rng.random() < SNOWSTORM_RATE else "hiver"
+        return "ete" if day.month in SUMMER_MONTHS else "normal"
 
-    def order(self, created_local: datetime, seq: int) -> dict[str, Any]:
+    def orders_for_day(self, day: date) -> list[dict[str, Any]]:
+        if is_closed(day):
+            return []
+        context = self._day_context(day)
+        expected = (
+            BASE_ORDERS_PER_DAY
+            * WEEKDAY_FACTOR[day.weekday()]
+            * MONTH_FACTOR[day.month]
+            * growth_factor(day)
+            * event_factor(day)
+            * (SNOWSTORM_FACTOR if context == "tempete" else 1.0)
+        )
+        n = max(1, round(expected * self.rng.uniform(0.85, 1.15)))
+        return [
+            self.order(created, seq, context=context)
+            for seq, created in enumerate(self._order_times(day, n), start=1)
+        ]
+
+    def order(self, created_local: datetime, seq: int, *, context: str = "normal") -> dict[str, Any]:
         created_ms = to_ms(created_local)
-        order_type = self.rng.choices([t for t, _ in ORDER_TYPES], weights=[w for _, w in ORDER_TYPES])[0]
+        day = created_local.date()
+        order_type = self.rng.choices(ORDER_TYPES, weights=ORDER_TYPE_WEIGHTS[context])[0]
 
         lines: list[dict[str, Any]] = []
         n_pizzas = self.rng.choices([1, 2, 3, 4], weights=[50, 30, 15, 5])[0]
         for _ in range(n_pizzas):
-            lines.append(self._line(self._pick(PIZZAS), created_ms, with_extras=True))
-        if self.rng.random() < 0.30:
+            lines.append(self._line(self._pick(PIZZAS, day), created_ms, with_extras=True))
+        dine_in = order_type == "Sur place"
+        pizza_ids = {line["item"]["id"] for line in lines}
+        if self.rng.random() < (0.38 if dine_in else 0.24):
             lines.append(self._line(self._pick(ENTREES), created_ms))
         for _ in range(n_pizzas):
-            if self.rng.random() < 0.50:
-                lines.append(self._line(self._pick(DRINKS), created_ms))
-        if self.rng.random() < 0.15:
+            if self.rng.random() < (0.62 if dine_in else 0.40):
+                lines.append(self._line(self._pick_drink(pizza_ids, dine_in), created_ms))
+        if self.rng.random() < (0.24 if dine_in else 0.08):
             lines.append(self._line(self._pick(DESSERTS), created_ms))
 
         subtotal = sum(
@@ -379,6 +478,11 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     p.add_argument("--seed", type=int, default=42, help="Graine aléatoire (défaut 42)")
     p.add_argument("--out", type=Path, help="Écrit les commandes en JSON dans ce fichier")
     p.add_argument("--load", action="store_true", help="Charge les commandes dans Snowflake (RAW)")
+    p.add_argument(
+        "--local",
+        action="store_true",
+        help="Charge les commandes dans l'entrepôt local DuckDB (démo sans compte Snowflake)",
+    )
     return p.parse_args(argv)
 
 
@@ -400,6 +504,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.load:
         rows = load_orders(orders)
         log.info("chargé %s lignes dans RAW (merchant_id=%s)", rows, DEMO_MERCHANT_ID)
+    if args.local:
+        from scripts.local_warehouse import load_demo_orders
+
+        path, rows = load_demo_orders(orders, merchant_id=DEMO_MERCHANT_ID)
+        log.info("chargé %s lignes dans l'entrepôt local %s", rows, path)
     return 0
 
 

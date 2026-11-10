@@ -1,0 +1,250 @@
+version: 2
+
+models:
+  - name: rpt_sales_daily
+    description: >
+      Le tableau de bord en une table : une ligne par jour avec les ventes, les rabais,
+      les remboursements, les pourboires, le panier moyen et une moyenne mobile sur 7 jours.
+    columns:
+      - name: date_day
+        description: Le jour (clé).
+        data_tests: [not_null, unique]
+      - name: orders
+        description: Nombre de commandes payées.
+      - name: items
+        description: Nombre d'articles vendus.
+      - name: gross_sales
+        description: Ventes avant rabais, hors taxes.
+      - name: discount_amount
+        description: Total des rabais accordés.
+      - name: refund_amount
+        description: Total remboursé, hors taxes.
+      - name: net_sales
+        description: Ventes nettes, hors taxes et hors pourboires.
+        data_tests:
+          - not_null
+      - name: tax_amount
+        description: TPS et TVQ perçues.
+      - name: tip_amount
+        description: Pourboires.
+      - name: total_collected
+        description: Total encaissé (ventes nettes + taxes + pourboires).
+      - name: discounted_orders
+        description: Commandes ayant reçu un rabais.
+      - name: refunded_orders
+        description: Commandes remboursées.
+      - name: is_open
+        description: Faux si aucune commande ce jour-là (fermeture).
+      - name: average_ticket
+        description: Panier moyen = ventes nettes / commandes. Vide les jours de fermeture.
+      - name: net_sales_7d_avg
+        description: Moyenne mobile des ventes nettes sur 7 jours (lisse l'effet du week-end). Vide les 6 premiers jours de l'historique.
+      - name: net_sales_same_weekday_last_week
+        description: Ventes nettes du même jour de la semaine précédente.
+
+  - name: rpt_sales_by_channel_daily
+    description: Ventes par jour et par type de commande.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [order_date, order_type]
+    columns:
+      - name: order_date
+        data_tests: [not_null]
+      - name: order_type
+        description: Sur place, À emporter ou Livraison.
+        data_tests: [not_null]
+      - name: orders
+        description: Nombre de commandes.
+      - name: net_sales
+        description: Ventes nettes hors taxes.
+      - name: tip_amount
+        description: Pourboires.
+
+  - name: rpt_sales_by_tender_daily
+    description: Encaissements par jour et par moyen de paiement.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [order_date, tender_type]
+    columns:
+      - name: order_date
+        data_tests: [not_null]
+      - name: tender_type
+        description: Carte de crédit, Débit, Comptant…
+        data_tests: [not_null]
+      - name: orders
+        description: Nombre de commandes.
+      - name: total_collected
+        description: Montant encaissé, taxes et pourboires compris.
+
+  - name: rpt_sales_hourly
+    description: Commandes et ventes par jour et par heure, pour lire l'affluence.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [order_date, order_hour]
+    columns:
+      - name: order_date
+        data_tests: [not_null]
+      - name: order_hour
+        description: Heure de la commande (0 à 23), heure du restaurant.
+        data_tests: [not_null]
+      - name: orders
+        description: Nombre de commandes passées dans l'heure.
+      - name: items
+        description: Nombre d'articles.
+      - name: net_sales
+        description: Ventes nettes hors taxes.
+
+  - name: rpt_product_daily
+    description: Ventes par jour et par produit.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [order_date, product_id]
+    columns:
+      - name: order_date
+        data_tests: [not_null]
+      - name: product_id
+        data_tests: [not_null]
+      - name: product_name
+        description: Nom du produit.
+      - name: category
+        description: Catégorie du produit.
+      - name: quantity
+        description: Unités vendues.
+      - name: gross_sales
+        description: Ventes avant rabais.
+      - name: net_sales
+        description: Ventes nettes.
+      - name: estimated_cost
+        description: Coût matière estimé des unités vendues.
+      - name: lines_with_extras
+        description: Unités vendues avec au moins un extra.
+      - name: extras_amount
+        description: Montant des extras.
+
+  - name: rpt_menu_engineering
+    description: >
+      Classement de la carte selon la méthode Kasavana-Smith : chaque produit est Vedette,
+      Valeur sûre, Énigme ou Poids mort selon sa popularité et sa marge, au sein de sa catégorie.
+    columns:
+      - name: product_id
+        data_tests: [not_null, unique]
+      - name: product_name
+        description: Nom du produit.
+      - name: category
+        description: Catégorie au sein de laquelle le produit est comparé.
+      - name: quantity_sold
+        description: Unités vendues sur la fenêtre.
+      - name: net_sales
+        description: Ventes nettes sur la fenêtre.
+      - name: estimated_cost
+        description: Coût matière estimé des unités vendues.
+      - name: contribution_margin
+        description: Ventes nettes − coût matière estimé.
+      - name: unit_margin
+        description: Marge par unité vendue.
+      - name: category_unit_margin
+        description: Marge unitaire moyenne de la catégorie — seuil de rentabilité.
+      - name: mix_share
+        description: Part du produit dans les unités vendues de sa catégorie.
+      - name: popularity_threshold
+        description: Seuil de popularité = 70 % d'une part égale entre les produits de la catégorie.
+      - name: menu_class
+        description: Vedette, Valeur sûre, Énigme ou Poids mort.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["Vedette", "Valeur sûre", "Énigme", "Poids mort"]
+      - name: recommended_action
+        description: Piste d'action associée au classement.
+
+  - name: rpt_product_pairs
+    description: Paires de produits commandés ensemble, avec support, confiance et lift.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [product_a_id, product_b_id]
+    columns:
+      - name: product_a_id
+        data_tests: [not_null]
+      - name: product_b_id
+        data_tests: [not_null]
+      - name: orders_together
+        description: Commandes contenant les deux produits.
+      - name: support
+        description: Part des commandes contenant les deux produits.
+      - name: confidence_a_to_b
+        description: Parmi les commandes avec A, part de celles qui ont aussi B.
+      - name: confidence_b_to_a
+        description: Parmi les commandes avec B, part de celles qui ont aussi A.
+      - name: lift
+        description: Supérieur à 1 = association plus fréquente que le hasard.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: false
+  
+  - name: rpt_pipeline_runs
+    description: Journal des exécutions du pipeline, pour suivre la fraîcheur et les échecs.
+    columns:
+      - name: run_id
+        data_tests: [not_null, unique]
+      - name: duration_seconds
+        description: Durée du run en secondes.
+
+unit_tests:
+  - name: menu_classes_follow_kasavana_smith
+    description: >
+      Quatre pizzas, une par quadrant. Seuil de popularité = 0,7 / 4 = 17,5 % des unités ;
+      seuil de marge = marge unitaire moyenne pondérée de la catégorie (ici 9,70 $).
+    model: rpt_menu_engineering
+    given:
+      - input: ref('fct_order_lines')
+        rows:
+          # Vedette : 4 unités (40 %), marge unitaire 12
+          - {line_item_id: 1, order_date: "2026-10-01", product_id: STAR, product_name: Vedette, category: Pizzas, net_sales: 18, estimated_cost: 6}
+          - {line_item_id: 2, order_date: "2026-10-01", product_id: STAR, product_name: Vedette, category: Pizzas, net_sales: 18, estimated_cost: 6}
+          - {line_item_id: 3, order_date: "2026-10-02", product_id: STAR, product_name: Vedette, category: Pizzas, net_sales: 18, estimated_cost: 6}
+          - {line_item_id: 4, order_date: "2026-10-02", product_id: STAR, product_name: Vedette, category: Pizzas, net_sales: 18, estimated_cost: 6}
+          # Valeur sûre : 4 unités (40 %), marge unitaire 7
+          - {line_item_id: 5, order_date: "2026-10-01", product_id: HORSE, product_name: Valeur, category: Pizzas, net_sales: 15, estimated_cost: 8}
+          - {line_item_id: 6, order_date: "2026-10-01", product_id: HORSE, product_name: Valeur, category: Pizzas, net_sales: 15, estimated_cost: 8}
+          - {line_item_id: 7, order_date: "2026-10-02", product_id: HORSE, product_name: Valeur, category: Pizzas, net_sales: 15, estimated_cost: 8}
+          - {line_item_id: 8, order_date: "2026-10-02", product_id: HORSE, product_name: Valeur, category: Pizzas, net_sales: 15, estimated_cost: 8}
+          # Énigme : 1 unité (10 %), marge unitaire 15
+          - {line_item_id: 9, order_date: "2026-10-02", product_id: PUZZLE, product_name: Enigme, category: Pizzas, net_sales: 22, estimated_cost: 7}
+          # Poids mort : 1 unité (10 %), marge unitaire 6
+          - {line_item_id: 10, order_date: "2026-10-02", product_id: DOG, product_name: Poids, category: Pizzas, net_sales: 14, estimated_cost: 8}
+          # Hors fenêtre de 90 jours : ignoré
+          - {line_item_id: 11, order_date: "2026-01-01", product_id: DOG, product_name: Poids, category: Pizzas, net_sales: 14, estimated_cost: 8}
+    expect:
+      rows:
+        - {product_id: STAR, quantity_sold: 4, menu_class: Vedette}
+        - {product_id: HORSE, quantity_sold: 4, menu_class: Valeur sûre}
+        - {product_id: PUZZLE, quantity_sold: 1, menu_class: Énigme}
+        - {product_id: DOG, quantity_sold: 1, menu_class: Poids mort}
+
+exposures:
+  - name: cockpit_ventes
+    label: Cockpit des ventes
+    type: dashboard
+    maturity: medium
+    description: >
+      Tableau de bord du propriétaire : une page HTML autonome générée après chaque
+      `dbt build` par scripts/build_cockpit.py. Elle ne lit que les tables rpt_*.
+    owner:
+      name: Attaboy — pipeline data
+    depends_on:
+      - ref('rpt_sales_daily')
+      - ref('rpt_sales_by_channel_daily')
+      - ref('rpt_sales_by_tender_daily')
+      - ref('rpt_sales_hourly')
+      - ref('rpt_product_daily')
+      - ref('rpt_menu_engineering')
+      - ref('rpt_product_pairs')
+      - ref('rpt_pipeline_runs')
