@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import re
 from datetime import date, datetime
+from pathlib import Path
 
 from scripts.demo_data import (
     DEMO_MERCHANT_ID,
@@ -108,6 +110,12 @@ def test_load_orders_uses_merge_and_logs_run() -> None:
     assert conn.finished[-1][1] == "success"
     staged_orders = conn.staged[0][1]
     assert all(r["merchant_id"] == DEMO_MERCHANT_ID for r in staged_orders)
+
+    # Snowflake applique la longueur des VARCHAR (DuckDB et les faux non) :
+    # le run_id doit tenir dans META.PIPELINE_RUNS.RUN_ID.
+    ddl = (Path(__file__).parents[1] / "sql" / "002_schema_meta.sql").read_text(encoding="utf-8")
+    max_len = int(re.search(r"run_id\s+VARCHAR\((\d+)\)", ddl).group(1))
+    assert len(run_id) <= max_len
 
 
 def test_closed_on_christmas_and_new_year() -> None:

@@ -17,7 +17,7 @@ USE WAREHOUSE ATTABOY_WH;
 USE SCHEMA ATTABOY_DW.META;
 
 CREATE TABLE IF NOT EXISTS pipeline_runs (
-    run_id           VARCHAR(36)    NOT NULL COMMENT 'UUID du run (= _source_request_id pour l''ingest Clover).',
+    run_id           VARCHAR(64)    NOT NULL COMMENT 'UUID du run, préfixé « demo- » pour la démo (= _source_request_id dans RAW).',
     pipeline_name    VARCHAR        NOT NULL COMMENT 'ingest_clover | ingest_factures | dbt_run.',
     started_at       TIMESTAMP_TZ   NOT NULL COMMENT 'Début d''exécution (UTC).',
     finished_at      TIMESTAMP_TZ            COMMENT 'Fin d''exécution — NULL tant que status = running.',
