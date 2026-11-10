@@ -69,8 +69,13 @@ GRANT ROLE ATTABOY_READONLY TO ROLE SYSADMIN;
 
 -- L'administrateur qui exécute ce script doit pouvoir faire USE ROLE ATTABOY_PIPELINE
 -- pour créer les tables (001, 002) dont le pipeline sera propriétaire.
-SET attaboy_admin_user = CURRENT_USER();
+-- Guillemets doubles : le nom peut être en minuscules (ex. "otmane").
+-- Sans eux, IDENTIFIER() le passe en majuscules et Snowflake répond
+-- « User 'OTMANE' does not exist or not authorized ».
+USE ROLE ACCOUNTADMIN;
+SET attaboy_admin_user = '"' || CURRENT_USER() || '"';
 GRANT ROLE ATTABOY_PIPELINE TO USER IDENTIFIER($attaboy_admin_user);
+USE ROLE SECURITYADMIN;
 
 -- ---------------------------------------------------------------------------
 -- 4. Privilèges ATTABOY_PIPELINE
@@ -122,6 +127,9 @@ CREATE USER IF NOT EXISTS ATTABOY_PIPELINE_SVC
     COMMENT = 'Compte technique du pipeline Attaboy (systemd timer). Clé RSA, pas de mot de passe.';
 
 ALTER USER ATTABOY_PIPELINE_SVC SET TIMEZONE = 'UTC';
+-- Snowflake active par défaut tous les rôles secondaires (["ALL"]).
+-- Le robot ne doit travailler qu'avec son trousseau principal.
+ALTER USER ATTABOY_PIPELINE_SVC SET DEFAULT_SECONDARY_ROLES = ();
 
 USE ROLE SECURITYADMIN;
 GRANT ROLE ATTABOY_PIPELINE TO USER ATTABOY_PIPELINE_SVC;
