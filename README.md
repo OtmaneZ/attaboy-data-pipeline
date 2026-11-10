@@ -67,6 +67,17 @@ cd dbt && ../.venv/bin/dbt debug && ../.venv/bin/dbt build   # modèles + tests
 
 Tests unitaires : `.venv/bin/pytest -q`
 
+### Données de démonstration
+
+Les captures et la démo de ce repo utilisent des **données simulées** : `scripts/demo_data.py` génère des commandes fictives de pizzeria au format exact de l'API Clover (menu, affluence selon l'heure et le jour, extras, rabais, taxes TPS/TVQ, pourboires, remboursements). Aucune donnée réelle du restaurant n'apparaît dans ce repo.
+
+```bash
+.venv/bin/python -m scripts.demo_data --days 120          # résumé de contrôle, rien n'est chargé
+.venv/bin/python -m scripts.demo_data --days 120 --load   # chargement dans RAW via le même MERGE que l'ingest
+```
+
+Les lignes simulées portent le `merchant_id` `DEMOPIZZERIA1` et un `run_id` préfixé `demo-`.
+
 ## Suivi
 
 ```sql
