@@ -1,4 +1,4 @@
-<title>Cockpit Attaboy</title>
+<title>Cockpit des ventes</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap">
 <style>
 /* Mise en page : un bandeau, trois onglets, une ligne de filtres, puis des blocs sur une grille de 12 colonnes. */
@@ -757,6 +757,7 @@ footer { color: var(--ink-3); font-size: 12.5px; padding-block: 0 28px; display:
   /* ---------- cadre ---------- */
   function renderChrome() {
     document.getElementById("brand-name").textContent = META.client.name;
+    document.title = `Cockpit · ${META.client.name}`;
     document.getElementById("brand-sub").textContent = META.client.tagline;
     const ok = Q ? Q.totals.fail === 0 : null;
     document.getElementById("top-meta").replaceChildren(
