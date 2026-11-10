@@ -1,0 +1,19 @@
+name: attaboy
+version: 1.0.0
+config-version: 2
+profile: attaboy
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+target-path: target
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  attaboy:
+    +schema: analytics
+    staging:
+      +materialized: view
+      +tags: ["staging"]
+    marts:
+      +materialized: table
+      +tags: ["marts"]

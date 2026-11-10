@@ -1,0 +1,20 @@
+version: 2
+
+models:
+  - name: fct_order_lines
+    description: Une ligne = une ligne de commande Clover enrichie de l'ordre parent (fuseau America/Toronto).
+    columns:
+      - name: clover_line_item_id
+        tests: [not_null, unique]
+      - name: clover_order_id
+        tests: [not_null]
+
+  - name: fct_sales_daily
+    description: Agrégats journaliers commandes / paiements (America/Toronto) pour Power BI.
+    columns:
+      - name: merchant_id
+        tests: [not_null]
+      - name: sales_date
+        tests: [not_null]
+      - name: sales_day_sk
+        tests: [not_null, unique]

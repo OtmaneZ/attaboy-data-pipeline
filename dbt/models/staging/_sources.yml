@@ -1,0 +1,24 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    description: Couche brute Attaboy (ingest Clover / factures).
+    tables:
+      - name: raw_clover_orders
+        description: Commandes Clover brutes.
+        columns:
+          - name: clover_order_id
+            tests: [not_null, unique]
+      - name: raw_clover_line_items
+        description: Lignes de commande Clover brutes.
+        columns:
+          - name: clover_line_item_id
+            tests: [not_null, unique]
+      - name: raw_clover_payments
+        description: Paiements Clover bruts.
+        columns:
+          - name: clover_payment_id
+            tests: [not_null, unique]
+      - name: raw_factures_lignes
+        description: Lignes factures fournisseurs (Mission 4 — pas encore de modèles dbt).
