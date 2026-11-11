@@ -25,6 +25,7 @@ from typing import Any, Optional, Sequence
 REPO_ROOT = Path(__file__).resolve().parents[1]
 COCKPIT_DIR = REPO_ROOT / "cockpit"
 DBT_TARGET_DIR = REPO_ROOT / "dbt" / "target"
+DBT_PROJECT_FILE = REPO_ROOT / "dbt" / "dbt_project.yml"
 DEFAULT_OUT = COCKPIT_DIR / "dist" / "index.html"
 DATA_PLACEHOLDER = "/*__COCKPIT_DATA__*/"
 
@@ -251,6 +252,21 @@ def collect_quality(target_dir: Path = DBT_TARGET_DIR) -> Optional[dict[str, Any
 # ---------------------------------------------------------------------------
 
 
+def dbt_var(name: str, default: Any, project_file: Path = DBT_PROJECT_FILE) -> Any:
+    """Valeur d'une `var` de dbt_project.yml : le cockpit annonce la même fenêtre que les modèles."""
+    try:
+        import yaml  # fourni avec dbt-core
+    except ImportError:
+        return default
+    try:
+        project = yaml.safe_load(project_file.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return default
+    if not isinstance(project, dict):
+        return default
+    return (project.get("vars") or {}).get(name, default)
+
+
 def collect_data(warehouse: Warehouse, client: dict[str, Any], *, quality: Optional[dict[str, Any]]) -> dict[str, Any]:
     data: dict[str, Any] = {name: warehouse.table(sql) for name, sql in QUERIES.items()}
     if not data["daily"]["rows"]:
@@ -264,7 +280,9 @@ def collect_data(warehouse: Warehouse, client: dict[str, Any], *, quality: Optio
 
     days = data["daily"]["rows"]
     data["meta"] = {
-        "client": {k: client[k] for k in ("name", "tagline", "currency", "locale")},
+        # focus_category (facultatif) : catégorie mise en avant dans l'onglet Carte.
+        "client": {k: client.get(k) for k in ("name", "tagline", "currency", "locale", "focus_category")},
+        "menu_window_days": dbt_var("menu_window_days", 90),
         "engine": warehouse.engine,
         # Tant que les données viennent du générateur, la page l'affiche en permanence.
         "is_demo": bool(merchants) and all(m in client.get("demo_merchant_ids", []) for m in merchants),
@@ -274,6 +292,22 @@ def collect_data(warehouse: Warehouse, client: dict[str, Any], *, quality: Optio
     }
     data["quality"] = quality
     return data
+
+
+def quality_for(engine: str, quality: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
+    """Ne garde les contrôles que s'ils ont été joués sur le moteur dont viennent les chiffres.
+
+    dbt/target ne retient que le dernier `dbt build` : après une démo locale, il décrit DuckDB.
+    Afficher ces résultats à côté de chiffres lus dans Snowflake attesterait des contrôles
+    qui n'ont pas porté sur ces données.
+    """
+    if quality and quality.get("adapter") != engine:
+        log.warning(
+            "dernier `dbt build` joué sur %s, chiffres lus sur %s : bloc qualité ignoré (relancer dbt build sur %s)",
+            quality.get("adapter"), engine, engine,
+        )
+        return None
+    return quality
 
 
 def render(template: str, data: dict[str, Any]) -> str:
@@ -300,7 +334,7 @@ def build(target: str, out: Path) -> Path:
     template = (COCKPIT_DIR / "template.html").read_text(encoding="utf-8")
     warehouse = Warehouse.open(target)
     try:
-        data = collect_data(warehouse, client, quality=collect_quality())
+        data = collect_data(warehouse, client, quality=quality_for(warehouse.engine, collect_quality()))
     finally:
         warehouse.close()
     out.parent.mkdir(parents=True, exist_ok=True)

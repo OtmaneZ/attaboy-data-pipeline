@@ -8,7 +8,7 @@ Pipeline de données et cockpit des ventes d'**Attaboy, pizzeria de quartier** (
 
 ## Voir le projet tourner en une minute
 
-Aucun compte, aucun secret : la démo s'exécute en local sur DuckDB avec un an de commandes fictives.
+Aucun compte, aucun secret : la démo s'exécute en local sur DuckDB avec deux ans de commandes fictives.
 
 ```bash
 git clone git@github.com:OtmaneZ/attaboy-data-pipeline.git && cd attaboy-data-pipeline
@@ -67,7 +67,7 @@ Chaque exécution lance 100 contrôles dbt ; un seul échec arrête le pipeline 
 - **Structure** : clés uniques et non nulles, relations entre tables, valeurs autorisées, fraîcheur des sources.
 - **Isolement** : une base ne contient qu'un marchand ; données simulées et réelles ne se mélangent pas.
 
-S'y ajoutent 42 tests unitaires Python (ingest, générateur, chargement local, cockpit) et une CI GitHub Actions qui rejoue le pipeline complet à chaque push.
+S'y ajoutent 48 tests unitaires Python (ingest, générateur, chargement local, cockpit) et une CI GitHub Actions qui rejoue le pipeline complet à chaque push.
 
 ## Contenu du dépôt
 

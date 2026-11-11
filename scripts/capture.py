@@ -30,7 +30,8 @@ SHOTS = (
     ("cockpit-mobile.png", "ventes", 90, "light", 400, 860, False),
     # Formats réseaux : rapport 1,91:1 (publication LinkedIn) et 4:3 (portfolio Malt)
     ("social-linkedin.png", "ventes", 365, "light", 1600, 838, False),
-    ("social-malt.png", "carte", 90, "light", 1440, 1080, False),
+    ("social-malt.png", "ventes", 365, "light", 1440, 1080, False),
+    ("social-malt-carte.png", "carte", 90, "light", 1440, 1080, False),
 )
 
 

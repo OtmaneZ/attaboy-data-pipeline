@@ -16,7 +16,7 @@ Pour un nouvel établissement, on copie le dépôt (un dépôt et une base par c
 
 | Quoi | Où |
 |---|---|
-| Nom, slogan, devise, langue du cockpit | `cockpit/client.json` |
+| Nom, slogan, devise, langue du cockpit ; catégorie mise en avant dans l'onglet Carte (`focus_category`, facultatif : par défaut celle qui vend le plus) | `cockpit/client.json` |
 | Fuseau horaire, fenêtre d'analyse de la carte | `vars` dans `dbt/dbt_project.yml` |
 | Catégories et coûts des produits | `dbt/seeds/menu_catalog.csv` |
 | Noms des objets Snowflake (`ATTABOY_DW`, `ATTABOY_WH`, rôles) | `sql/*.sql`, valeurs par défaut de `scripts/snowflake_utils.py` et `dbt/profiles.yml` |

@@ -6,7 +6,7 @@ from decimal import Decimal
 
 import pytest
 
-from scripts.build_cockpit import DATA_PLACEHOLDER, collect_quality, render, standalone_page, to_json
+from scripts.build_cockpit import DATA_PLACEHOLDER, collect_quality, dbt_var, quality_for, render, standalone_page, to_json
 
 
 def test_to_json_converts_warehouse_types() -> None:
@@ -114,3 +114,22 @@ def test_collect_quality_ignores_missing_or_unrelated_artifacts(tmp_path) -> Non
     _write(tmp_path / "manifest.json", {"metadata": {}, "nodes": {}})
     _write(tmp_path / "run_results.json", {"metadata": {}, "args": {"which": "docs"}, "results": []})
     assert collect_quality(tmp_path) is None
+
+
+def test_dbt_var_reads_the_project_file_and_falls_back(tmp_path) -> None:
+    project = tmp_path / "dbt_project.yml"
+    project.write_text("name: demo\nvars:\n  menu_window_days: 60\n", encoding="utf-8")
+
+    assert dbt_var("menu_window_days", 90, project) == 60
+    assert dbt_var("inconnue", 7, project) == 7
+    assert dbt_var("menu_window_days", 90, tmp_path / "absent.yml") == 90
+    project.write_text("- pas un projet\n", encoding="utf-8")
+    assert dbt_var("menu_window_days", 90, project) == 90
+
+
+def test_quality_is_only_shown_for_the_engine_it_was_run_on() -> None:
+    quality = {"adapter": "duckdb", "totals": {"pass": 1, "warn": 0, "fail": 0}}
+
+    assert quality_for("duckdb", quality) is quality
+    assert quality_for("snowflake", quality) is None
+    assert quality_for("snowflake", None) is None
