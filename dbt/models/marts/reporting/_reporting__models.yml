@@ -62,7 +62,9 @@ models:
         description: Pourboires.
 
   - name: rpt_sales_by_tender_daily
-    description: Encaissements par jour et par moyen de paiement.
+    description: >
+      Ventes encaissées par jour de commande et par moyen de paiement (« Mixte » si la commande en combine plusieurs).
+      Pour rapprocher la caisse, utiliser rpt_payments_daily, qui part des paiements eux-mêmes.
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -77,6 +79,34 @@ models:
         description: Nombre de commandes.
       - name: total_collected
         description: Montant encaissé, taxes et pourboires compris.
+
+  - name: rpt_payments_daily
+    description: >
+      Caisse par jour et par moyen de paiement : paiements reçus et remboursements rendus,
+      chacun compté le jour où il a eu lieu. C'est la table à comparer au rapport de fermeture de la caisse.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [payment_date, tender_type]
+    columns:
+      - name: payment_date
+        description: Jour de vente du mouvement de caisse.
+        data_tests: [not_null]
+      - name: tender_type
+        description: Carte de crédit, Débit, Comptant…
+        data_tests: [not_null]
+      - name: payments
+        description: Nombre de paiements reçus.
+      - name: amount_paid
+        description: Montant reçu, taxes et pourboires compris.
+      - name: tip_amount
+        description: Dont pourboires.
+      - name: refunds
+        description: Nombre de remboursements rendus ce jour-là.
+      - name: amount_refunded
+        description: Montant rendu, taxes et pourboires compris.
+      - name: net_collected
+        description: Montant reçu moins montant rendu.
 
   - name: rpt_sales_hourly
     description: Commandes et ventes par jour et par heure, pour lire l'affluence.
@@ -228,6 +258,25 @@ unit_tests:
         - {product_id: HORSE, quantity_sold: 4, menu_class: Valeur sûre}
         - {product_id: PUZZLE, quantity_sold: 1, menu_class: Énigme}
         - {product_id: DOG, quantity_sold: 1, menu_class: Poids mort}
+
+  - name: refund_leaves_the_till_on_the_day_it_is_made
+    description: >
+      Un paiement par carte le 1er, remboursé le 2 : la caisse du 1er garde l'encaissement,
+      celle du 2 montre la sortie d'argent, sur le même moyen de paiement.
+    model: rpt_payments_daily
+    given:
+      - input: ref('fct_payments')
+        rows:
+          - {payment_id: P1, payment_date: "2026-10-01", tender_type: Carte de crédit, total_paid: 23.00, tip_amount: 3.00}
+          - {payment_id: P2, payment_date: "2026-10-01", tender_type: Comptant, total_paid: 10.00, tip_amount: 0}
+      - input: ref('fct_refunds')
+        rows:
+          - {refund_id: R1, refund_date: "2026-10-02", tender_type: Carte de crédit, total_refunded: 23.00}
+    expect:
+      rows:
+        - {payment_date: "2026-10-01", tender_type: Carte de crédit, payments: 1, amount_paid: 23.00, tip_amount: 3.00, refunds: 0, amount_refunded: 0, net_collected: 23.00}
+        - {payment_date: "2026-10-01", tender_type: Comptant, payments: 1, amount_paid: 10.00, tip_amount: 0, refunds: 0, amount_refunded: 0, net_collected: 10.00}
+        - {payment_date: "2026-10-02", tender_type: Carte de crédit, payments: 0, amount_paid: 0, tip_amount: 0, refunds: 1, amount_refunded: 23.00, net_collected: -23.00}
 
 exposures:
   - name: cockpit_ventes

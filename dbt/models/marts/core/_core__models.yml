@@ -180,6 +180,85 @@ models:
       - name: estimated_cost
         description: Coût matière estimé de l'article (catalogue).
 
+  - name: fct_payments
+    description: >
+      Paiements réussis, un par ligne, datés du moment de l'encaissement. Sert au rapprochement
+      de caisse ; une commande réglée en deux fois y apparaît deux fois, avec chaque moyen de paiement.
+    columns:
+      - name: payment_id
+        description: Identifiant Clover du paiement (clé).
+        data_tests: [not_null, unique]
+      - name: order_id
+        description: Commande réglée par ce paiement.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('fct_orders')
+                field: order_id
+      - name: paid_at
+        description: Date et heure du paiement, heure du restaurant.
+        data_tests: [not_null]
+      - name: payment_date
+        description: Jour de vente du paiement (même règle que order_date).
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+      - name: tender_type
+        description: Moyen de paiement de ce paiement précis (jamais « Mixte »).
+        data_tests: [not_null]
+      - name: amount
+        description: Montant payé, taxes comprises, hors pourboire.
+      - name: tax_amount
+        description: Taxes comprises dans le montant.
+      - name: tip_amount
+        description: Pourboire laissé avec ce paiement.
+      - name: total_paid
+        description: Ce qui est réellement entré en caisse = montant + pourboire.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
+  - name: fct_refunds
+    description: >
+      Remboursements, un par ligne, datés du moment où l'argent est ressorti. Dans fct_orders,
+      le même remboursement réduit la vente de la commande d'origine, à la date de la commande.
+    columns:
+      - name: refund_id
+        description: Identifiant Clover du remboursement (clé).
+        data_tests: [not_null, unique]
+      - name: order_id
+        description: Commande remboursée.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('fct_orders')
+                field: order_id
+      - name: payment_id
+        description: Paiement d'origine, s'il est connu.
+      - name: refunded_at
+        description: Date et heure du remboursement, heure du restaurant.
+        data_tests: [not_null]
+      - name: refund_date
+        description: Jour de vente du remboursement.
+        data_tests: [not_null]
+      - name: tender_type
+        description: Moyen de paiement d'origine ; « Inconnu » si le paiement n'est pas retrouvé.
+        data_tests: [not_null]
+      - name: amount
+        description: Montant remboursé, taxes comprises, hors pourboire.
+      - name: tax_amount
+        description: Taxes comprises dans le montant remboursé.
+      - name: tip_amount
+        description: Pourboire rendu.
+      - name: total_refunded
+        description: Ce qui est réellement ressorti de la caisse = montant + pourboire.
+
 unit_tests:
   - name: late_night_order_belongs_to_the_previous_business_day
     description: >

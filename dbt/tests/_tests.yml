@@ -11,5 +11,9 @@ data_tests:
     description: La somme des ventes nettes des articles redonne la vente nette de la commande.
   - name: assert_daily_report_matches_orders
     description: Le rapport quotidien ne perd ni n'invente aucune vente par rapport aux commandes.
+  - name: assert_payments_reconcile_with_orders
+    description: Pour chaque commande, paiements moins remboursements redonnent le montant encaissé, au cent près.
+  - name: assert_cash_report_matches_payments
+    description: Le rapport de caisse ne perd ni n'invente aucun paiement ni aucun remboursement.
   - name: assert_single_merchant
     description: Une base ne contient qu'un seul marchand, pour que données simulées et données réelles ne se mélangent jamais.
