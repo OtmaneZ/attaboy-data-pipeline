@@ -35,12 +35,16 @@ models:
         description: Nom le plus récent du produit dans la caisse.
         data_tests: [not_null]
       - name: category
-        description: Pizzas, Entrées, Boissons, Desserts ou Non classé.
+        description: Catégorie du catalogue (seeds/menu_catalog.csv), ou « Non classé » si le produit n'y figure pas.
         data_tests:
           - not_null
-          - accepted_values:
+          # Les catégories ne sont pas écrites ici : elles appartiennent au catalogue du client.
+          - relationships:
               arguments:
-                values: ["Pizzas", "Entrées", "Boissons", "Desserts", "Non classé"]
+                to: ref('menu_catalog')
+                field: category
+              config:
+                where: "category <> 'Non classé'"
       - name: list_price
         description: Prix de vente le plus récent, hors taxes.
       - name: estimated_unit_cost

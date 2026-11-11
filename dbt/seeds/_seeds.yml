@@ -1,0 +1,21 @@
+version: 2
+
+seeds:
+  - name: menu_catalog
+    description: >
+      Catalogue du menu, tenu à la main avec le propriétaire : catégorie et coût matière
+      estimé de chaque produit. C'est ici, et nulle part ailleurs, que vivent les catégories.
+    columns:
+      - name: product_id
+        description: Identifiant du produit dans la caisse (clé).
+        data_tests: [not_null, unique]
+      - name: category
+        description: Catégorie au sein de laquelle le produit est comparé dans l'analyse de la carte.
+        data_tests: [not_null]
+      - name: estimated_unit_cost
+        description: Coût matière estimé d'une unité, hors extras.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
