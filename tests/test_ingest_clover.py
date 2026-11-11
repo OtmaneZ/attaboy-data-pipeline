@@ -22,6 +22,7 @@ from scripts.ingest_clover import (
     ms_to_timestamptz,
     run_ingest,
     timestamptz_to_ms,
+    write_stage_file,
 )
 from scripts.snowflake_utils import SnowflakeSettings, sanitize_error
 from tests.fakes import FakeConn
@@ -367,6 +368,39 @@ def test_raw_loader_batches_and_dedups_in_merge() -> None:
     assert len(conn.merges) == 1
     assert "QUALIFY ROW_NUMBER() OVER" in conn.merges[0]
     assert "PARSE_JSON(payload_json)" in conn.merges[0]
+
+
+def test_raw_loader_switches_to_file_and_copy_for_large_volumes(monkeypatch) -> None:
+    monkeypatch.setattr("scripts.ingest_clover.BULK_LOAD_THRESHOLD", 100)
+    conn = FakeConn()
+    base = extract_from_orders([SAMPLE_ORDER], merchant_id="M", source_request_id="r")[0][0]
+    orders = [{**base, "clover_order_id": f"O{i}"} for i in range(250)]
+
+    assert RawLoader(conn).upsert_all(orders, [], []) == 250  # type: ignore[arg-type]
+
+    statements = conn.statements()
+    put = next(s for s in statements if s.startswith("PUT "))
+    copy = next(s for s in statements if s.startswith("COPY INTO"))
+    assert "@raw.%stg_raw_clover_orders" in put and "@raw.%stg_raw_clover_orders" in copy
+    assert "MATCH_BY_COLUMN_NAME" in copy and "PURGE = TRUE" in copy
+    assert statements.index(put) < statements.index(copy) < statements.index("BEGIN")
+    assert not conn.staged  # aucun INSERT ligne à ligne
+    assert len(conn.merges) == 1
+
+
+def test_stage_file_holds_one_json_object_per_row(tmp_path) -> None:
+    from datetime import datetime, timezone
+
+    rows = [
+        {"clover_order_id": "O1", "note": None, "created_time": datetime(2026, 10, 31, 15, 0, tzinfo=timezone.utc), "payload_json": '{"id":"O1"}'},
+        {"clover_order_id": "O2", "note": "sans oignon", "created_time": None, "payload_json": "{}"},
+    ]
+    lines = write_stage_file(rows, tmp_path / "stage.json").read_text(encoding="utf-8").splitlines()
+
+    assert [json.loads(line) for line in lines] == [
+        {"clover_order_id": "O1", "created_time": "2026-10-31T15:00:00+00:00", "payload_json": '{"id":"O1"}'},
+        {"clover_order_id": "O2", "note": "sans oignon", "payload_json": "{}"},
+    ]
 
 
 def test_raw_table_staging_is_schema_qualified() -> None:

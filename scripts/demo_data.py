@@ -11,6 +11,7 @@ Usage :
     python -m scripts.demo_data --days 120                 # résumé, rien n'est chargé
     python -m scripts.demo_data --days 120 --out demo.json # export JSON
     python -m scripts.demo_data --days 120 --load          # chargement dans RAW (Snowflake)
+    python -m scripts.demo_data --days 730 --load --replace # remplace la démo déjà chargée
     python -m scripts.demo_data --days 365 --local         # chargement dans l'entrepôt local (DuckDB)
 """
 
@@ -453,7 +454,25 @@ def summarize(orders: Sequence[dict[str, Any]]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def load_orders(orders: Sequence[dict[str, Any]], *, conn: Any = None) -> int:
+# Du détail vers la commande : l'ordre inverse de celui du chargement.
+DEMO_TABLES = ("raw.raw_clover_line_items", "raw.raw_clover_payments", "raw.raw_clover_orders")
+SQL_DELETE_DEMO = "DELETE FROM {table} WHERE merchant_id = %s AND _source_request_id LIKE 'demo-%%'"
+
+
+def delete_demo_rows(conn: Any) -> None:
+    """Efface la démo déjà chargée, et elle seule : marchand de démo ET run_id « demo- »."""
+    with conn.cursor() as cur:
+        cur.execute("BEGIN")
+        try:
+            for table in DEMO_TABLES:
+                cur.execute(SQL_DELETE_DEMO.format(table=table), (DEMO_MERCHANT_ID,))
+            cur.execute("COMMIT")
+        except Exception:
+            cur.execute("ROLLBACK")
+            raise
+
+
+def load_orders(orders: Sequence[dict[str, Any]], *, conn: Any = None, replace: bool = False) -> int:
     from scripts.ingest_clover import RawLoader, extract_from_orders
     from scripts.snowflake_utils import (
         PipelineRunStore,
@@ -479,6 +498,8 @@ def load_orders(orders: Sequence[dict[str, Any]], *, conn: Any = None) -> int:
         order_rows, line_rows, payment_rows = extract_from_orders(
             orders, merchant_id=DEMO_MERCHANT_ID, source_request_id=run_id
         )
+        if replace:
+            delete_demo_rows(conn)
         rows = RawLoader(conn).upsert_all(order_rows, line_rows, payment_rows)
         store.finish_run(run_id, status="success", rows_processed=rows, error_message=None)
         return rows
@@ -507,6 +528,11 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     p.add_argument("--out", type=Path, help="Écrit les commandes en JSON dans ce fichier")
     p.add_argument("--load", action="store_true", help="Charge les commandes dans Snowflake (RAW)")
     p.add_argument(
+        "--replace",
+        action="store_true",
+        help="Avec --load : efface d'abord la démo déjà chargée (jamais les données d'un vrai marchand)",
+    )
+    p.add_argument(
         "--local",
         action="store_true",
         help="Charge les commandes dans l'entrepôt local DuckDB (démo sans compte Snowflake)",
@@ -530,7 +556,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         args.out.write_text(json.dumps(orders, ensure_ascii=False), encoding="utf-8")
         log.info("écrit %s commandes dans %s", len(orders), args.out)
     if args.load:
-        rows = load_orders(orders)
+        rows = load_orders(orders, replace=args.replace)
         log.info("chargé %s lignes dans RAW (merchant_id=%s)", rows, DEMO_MERCHANT_ID)
     if args.local:
         from scripts.local_warehouse import load_demo_orders

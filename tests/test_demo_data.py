@@ -180,3 +180,25 @@ def test_delivery_share_grows_from_one_year_to_the_next() -> None:
         return summarize(DemoGenerator(seed=7).generate(start, end))["order_type_share"]["Livraison"]
 
     assert share(date(2026, 9, 1), date(2026, 10, 31)) > share(date(2024, 9, 1), date(2024, 10, 31))
+
+
+def test_replace_only_deletes_demo_rows_before_loading() -> None:
+    conn = FakeConn()
+    load_orders(DemoGenerator(seed=1).generate(START, START), conn=conn, replace=True)  # type: ignore[arg-type]
+
+    deletes = [(sql, params) for sql, params in conn.executed if sql.startswith("DELETE FROM")]
+    assert [sql.split()[2] for sql, _ in deletes] == [
+        "raw.raw_clover_line_items",
+        "raw.raw_clover_payments",
+        "raw.raw_clover_orders",
+    ]
+    for sql, params in deletes:
+        assert "_source_request_id LIKE 'demo-%%'" in sql and params == (DEMO_MERCHANT_ID,)
+    statements = conn.statements()
+    assert statements.index(deletes[-1][0]) < statements.index(conn.merges[0])
+
+
+def test_load_keeps_existing_rows_unless_asked() -> None:
+    conn = FakeConn()
+    load_orders(DemoGenerator(seed=1).generate(START, START), conn=conn)  # type: ignore[arg-type]
+    assert not [sql for sql in conn.statements() if sql.startswith("DELETE")]

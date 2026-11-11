@@ -2,7 +2,8 @@
 """Attaboy Mission 3 — ingest incrémental Clover → Snowflake RAW.RAW_CLOVER_*.
 
 Sandbox d'abord. Secrets via /opt/clients/attaboy/.env (jamais loggés).
-Chargement : INSERT multi-lignes dans des tables temporaires, puis MERGE
+Chargement : les lignes arrivent dans des tables temporaires (INSERT multi-lignes
+pour un run quotidien, fichier + COPY INTO pour un gros volume), puis MERGE
 idempotent dans une seule transaction.
 """
 
@@ -11,10 +12,12 @@ from __future__ import annotations
 import json
 import logging
 import sys
+import tempfile
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from pathlib import Path
 from typing import Any, Iterator, Mapping, Optional, Sequence
 
 import httpx
@@ -323,6 +326,9 @@ class CloverClient:
 # ---------------------------------------------------------------------------
 
 INSERT_BATCH_SIZE = 100  # garde chaque INSERT multi-lignes loin de la limite de taille de requête
+# Au-delà, un fichier envoyé d'un coup (PUT) puis lu par Snowflake (COPY INTO) : quelques secondes
+# au lieu de dizaines de minutes d'INSERT. Un run quotidien reste très en dessous de ce seuil.
+BULK_LOAD_THRESHOLD = 5_000
 
 
 @dataclass(frozen=True)
@@ -338,8 +344,24 @@ class RawTable:
         return f"{schema}.stg_{name}"
 
     @property
+    def table_stage(self) -> str:
+        """Zone de dépôt propre à la table de staging : rien à créer, rien à nettoyer."""
+        schema, name = self.staging.split(".")
+        return f"@{schema}.%{name}"
+
+    @property
     def column_names(self) -> list[str]:
         return [c for c, _ in self.columns]
+
+    def put_sql(self, path: Path) -> str:
+        return f"PUT 'file://{path.as_posix()}' {self.table_stage} AUTO_COMPRESS = TRUE OVERWRITE = TRUE"
+
+    def copy_sql(self) -> str:
+        # Une ligne du fichier = un objet JSON ; chaque clé rejoint la colonne du même nom.
+        return (
+            f"COPY INTO {self.staging} FROM {self.table_stage} "
+            "FILE_FORMAT = (TYPE = JSON) MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE PURGE = TRUE"
+        )
 
     def create_staging_sql(self) -> str:
         cols = ",\n    ".join(f"{c} {t}" for c, t in self.columns)
@@ -440,6 +462,19 @@ def _row_for_db(row: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def _json_value(value: Any) -> Any:
+    return value.isoformat() if isinstance(value, datetime) else str(value)
+
+
+def write_stage_file(rows: Sequence[dict[str, Any]], path: Path) -> Path:
+    """Un objet JSON par ligne. Une valeur absente n'est pas écrite : la colonne restera NULL."""
+    with path.open("w", encoding="utf-8") as fh:
+        for row in rows:
+            fh.write(json.dumps({k: v for k, v in row.items() if v is not None}, default=_json_value, ensure_ascii=False))
+            fh.write("\n")
+    return path
+
+
 def _batches(rows: Sequence[dict[str, Any]], size: int) -> Iterator[Sequence[dict[str, Any]]]:
     for i in range(0, len(rows), size):
         yield rows[i : i + size]
@@ -469,8 +504,11 @@ class RawLoader:
             for spec, rows in work:
                 cur.execute(spec.create_staging_sql())
                 db_rows = [_row_for_db(r) for r in rows]
-                for batch in _batches(db_rows, INSERT_BATCH_SIZE):
-                    cur.executemany(spec.insert_staging_sql(), batch)
+                if len(db_rows) > BULK_LOAD_THRESHOLD:
+                    self._stage_in_bulk(cur, spec, db_rows)
+                else:
+                    for batch in _batches(db_rows, INSERT_BATCH_SIZE):
+                        cur.executemany(spec.insert_staging_sql(), batch)
 
             cur.execute("BEGIN")
             try:
@@ -481,6 +519,13 @@ class RawLoader:
                 cur.execute("ROLLBACK")
                 raise
         return sum(len(rows) for _spec, rows in work)
+
+    @staticmethod
+    def _stage_in_bulk(cur: Any, spec: RawTable, db_rows: Sequence[dict[str, Any]]) -> None:
+        with tempfile.TemporaryDirectory(prefix="attaboy_stage_") as tmp:
+            path = write_stage_file(db_rows, Path(tmp) / f"{spec.staging.split('.')[1]}.json")
+            cur.execute(spec.put_sql(path))
+            cur.execute(spec.copy_sql())
 
 
 # ---------------------------------------------------------------------------

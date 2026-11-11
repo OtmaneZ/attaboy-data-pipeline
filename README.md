@@ -41,6 +41,7 @@ API Clover ─► scripts/ingest_clover.py ─► RAW ──────► STAG
 ```
 
 - **Incrémental et idempotent** : chaque run relit les commandes modifiées depuis le début du dernier run réussi, puis fait un `MERGE` dédoublonné dans une transaction. Relancer un run ne crée jamais de doublon.
+- **Chargement adapté au volume** : INSERT par lots pour un run quotidien ; au-delà de 5 000 lignes, un fichier envoyé d'un coup (`PUT`) puis lu par Snowflake (`COPY INTO`). Deux ans de démonstration, soit 174 000 lignes, se chargent en 45 secondes.
 - **Deux cibles, les mêmes modèles** : `snowflake` pour le projet, `local` (DuckDB) pour la démo, le développement et la CI. Six macros isolent les différences de syntaxe.
 - **Sécurité** : compte de service avec paire de clés RSA, rôles séparés écriture / lecture, secrets uniquement dans un `.env` hors du dépôt, champs libres de la caisse confinés au schéma `RAW`.
 - **Coûts maîtrisés** : warehouse XS en veille après 60 s, plafond de 10 crédits par mois, cockpit consultable sans rallumer l'entrepôt. Détail dans [docs/couts.md](docs/couts.md).
@@ -67,13 +68,13 @@ Chaque exécution lance 100 contrôles dbt ; un seul échec arrête le pipeline 
 - **Structure** : clés uniques et non nulles, relations entre tables, valeurs autorisées, fraîcheur des sources.
 - **Isolement** : une base ne contient qu'un marchand ; données simulées et réelles ne se mélangent pas.
 
-S'y ajoutent 48 tests unitaires Python (ingest, générateur, chargement local, cockpit) et une CI GitHub Actions qui rejoue le pipeline complet à chaque push.
+S'y ajoutent 52 tests unitaires Python (ingest, générateur, chargement local, cockpit) et une CI GitHub Actions qui rejoue le pipeline complet à chaque push.
 
 ## Contenu du dépôt
 
 | Dossier | Rôle |
 |---|---|
-| `sql/` | Provisioning Snowflake versionné : `000` infra et rôles, `001` tables RAW, `002` tables META, `999` suppression complète |
+| `sql/` | Provisioning Snowflake versionné : `000` infra et rôles, `001` tables RAW, `002` tables META, `100` visite guidée de l'entrepôt en dix requêtes, `999` suppression complète |
 | `scripts/` | `ingest_clover.py` (ingest), `demo_data.py` (commandes simulées), `local_warehouse.py` (entrepôt DuckDB), `build_cockpit.py` (cockpit), `capture.py` (captures d'écran) |
 | `dbt/` | Modèles, macros, catalogue du menu (`seeds/`), tests |
 | `cockpit/` | Gabarit du cockpit et réglages propres au client (`client.json`) |
@@ -117,10 +118,12 @@ Pour charger les données simulées dans Snowflake plutôt que les ventes réell
 
 ```bash
 set -a; source /opt/clients/attaboy/.env; set +a
-.venv/bin/python -m scripts.demo_data --days 120 --load
+.venv/bin/python -m scripts.demo_data --end 2026-10-31 --days 730 --load --replace
 ```
 
-Les lignes simulées portent le `merchant_id` `DEMOPIZZERIA1` et un `run_id` préfixé `demo-`.
+Les lignes simulées portent le `merchant_id` `DEMOPIZZERIA1` et un `run_id` préfixé `demo-`. `--replace` efface d'abord la démo déjà chargée, et elle seule. Avec la même fenêtre que `make demo`, Snowflake et l'entrepôt local donnent exactement les mêmes chiffres.
+
+Pour faire le tour de l'entrepôt dans Snowsight : [sql/100_visite_guidee.sql](sql/100_visite_guidee.sql).
 
 ### Suivi
 
