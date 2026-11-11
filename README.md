@@ -71,22 +71,22 @@ Les mêmes modèles tournent dans Snowflake. Deux requêtes de la [visite guidé
 
 ## Qualité
 
-Chaque exécution lance 136 contrôles dbt ; un seul échec arrête le pipeline avant le cockpit.
+Chaque exécution lance 140 contrôles dbt ; un seul échec arrête le pipeline avant le cockpit.
 
 - **Règles métier** : le total recalculé de chaque commande retombe sur celui de la caisse au cent près ; les paiements couvrent le total ; la somme des articles redonne la commande ; le rapport quotidien ne perd aucune vente ; paiements moins remboursements redonnent le montant encaissé de chaque commande.
 - **Tests unitaires dbt** : conversion d'un rabais en pourcentage, part hors taxes d'un remboursement, prix et coût des extras, commande passée après minuit, remboursement rendu un autre jour, classement de la carte (méthode Kasavana-Smith) sur un cas d'école.
 - **Structure** : clés uniques et non nulles, relations entre tables, valeurs autorisées, fraîcheur des sources.
 - **Isolement** : une base ne contient qu'un marchand ; données simulées et réelles ne se mélangent pas.
 
-S'y ajoutent 52 tests unitaires Python (ingest, générateur, chargement local, cockpit) et une CI GitHub Actions qui rejoue le pipeline complet à chaque push.
+S'y ajoutent 65 tests unitaires Python (ingest, générateur, chargement local, cockpit, copie pour un nouvel établissement) et une CI GitHub Actions qui rejoue le pipeline complet à chaque push.
 
 ## Contenu du dépôt
 
 | Dossier | Rôle |
 |---|---|
 | `sql/` | Provisioning Snowflake versionné : `000` infra et rôles, `001` tables RAW, `002` tables META, `100` visite guidée de l'entrepôt en dix requêtes, `999` suppression complète |
-| `scripts/` | `ingest_clover.py` (ingest), `demo_data.py` (commandes simulées), `local_warehouse.py` (entrepôt DuckDB), `build_cockpit.py` (cockpit), `capture.py` (captures d'écran) |
-| `dbt/` | Modèles, macros, catalogues du menu et des extras (`seeds/`), tests |
+| `scripts/` | `ingest_clover.py` (ingest), `demo_data.py` (commandes simulées), `local_warehouse.py` (entrepôt DuckDB), `build_cockpit.py` (cockpit), `capture.py` (captures d'écran), `new_client.py` (copie renommée pour un autre établissement) |
+| `dbt/` | Modèles, macros, fichiers tenus à la main (`seeds/` : menu, extras, libellés des moyens de paiement), tests |
 | `cockpit/` | Gabarit du cockpit et réglages propres au client (`client.json`) |
 | `tests/` | Tests unitaires pytest, sans connexion |
 | `docs/` | [Décisions](docs/decisions.md), [coûts](docs/couts.md), [reprise pour un autre établissement](docs/nouveau-client.md), captures |

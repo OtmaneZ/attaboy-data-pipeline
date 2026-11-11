@@ -12,7 +12,14 @@ Passer d'une étape à l'autre ne change aucun modèle : seuls la cible dbt (`AT
 
 ## Ce qui est propre à un client
 
-Pour un nouvel établissement, on copie le dépôt (un dépôt et une base par client, voir la décision 8 dans [decisions.md](decisions.md)) et on adapte uniquement ceci :
+Pour un nouvel établissement, on copie le dépôt (un dépôt et une base par client, voir la décision 8 dans [decisions.md](decisions.md)). Une commande fait la copie et renomme tout ce qui porte le nom du client (objets Snowflake, variables d'environnement, projet dbt, chemins du serveur) :
+
+```bash
+python -m scripts.new_client --slug luigi --name "Chez Luigi" --tagline "Montréal" \
+    --timezone America/Toronto --currency CAD --locale fr-CA --out ../luigi
+```
+
+La copie contient le code, les tests et la démo, prêts à tourner (`make install`, `make demo`). Elle ne contient ni les captures ni le contexte de l'établissement d'origine : `CONTEXT.md` et `README.md` sont des modèles à compléter. Il reste à adapter ceci :
 
 | Quoi | Où |
 |---|---|
@@ -20,7 +27,7 @@ Pour un nouvel établissement, on copie le dépôt (un dépôt et une base par c
 | Fuseau horaire, heure de début de la journée de vente (établissement ouvert après minuit), fenêtre d'analyse de la carte | `vars` dans `dbt/dbt_project.yml` |
 | Catégories et coûts des produits, coûts des extras | `dbt/seeds/menu_catalog.csv`, `dbt/seeds/extras_catalog.csv` |
 | Libellés des moyens de paiement (la caisse les envoie en anglais) | `dbt/seeds/tender_labels.csv` |
-| Noms des objets Snowflake (`ATTABOY_DW`, `ATTABOY_WH`, rôles) | `sql/*.sql`, valeurs par défaut de `scripts/snowflake_utils.py` et `dbt/profiles.yml` |
+| Noms des objets Snowflake (`ATTABOY_DW`, `ATTABOY_WH`, rôles) | Renommés par `scripts/new_client.py` dans `sql/*.sql`, `scripts/snowflake_utils.py` et `dbt/profiles.yml` |
 | Identifiants de la caisse et du compte Snowflake | `.env` (jamais versionné) |
 | Menu, horaires et affluence de la démo | constantes en tête de `scripts/demo_data.py` |
 | Contexte métier et ordres de grandeur | `CONTEXT.md` |
@@ -38,7 +45,7 @@ Seule la première couche est à réécrire : un script d'ingest qui remplit les
 
 ## Liste de contrôle
 
-1. Copier le dépôt, renommer les objets Snowflake dans `sql/`.
+1. Créer la copie avec `python -m scripts.new_client`, puis `git init` dans le nouveau dossier. Compléter `CONTEXT.md`.
 2. Adapter `demo_data.py` au menu du client, lancer `make demo`, montrer le cockpit sur données simulées.
 3. Recueillir les besoins sur cette base concrète, ajuster les modèles.
 4. Créer le compte Snowflake du client, jouer `sql/000` à `002`, remplir `.env`.
