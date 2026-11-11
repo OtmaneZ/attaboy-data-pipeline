@@ -19,6 +19,7 @@ Pour un nouvel établissement, on copie le dépôt (un dépôt et une base par c
 | Nom, slogan, devise, langue du cockpit ; catégorie mise en avant dans l'onglet Carte (`focus_category`, facultatif : par défaut celle qui vend le plus) | `cockpit/client.json` |
 | Fuseau horaire, heure de début de la journée de vente (établissement ouvert après minuit), fenêtre d'analyse de la carte | `vars` dans `dbt/dbt_project.yml` |
 | Catégories et coûts des produits, coûts des extras | `dbt/seeds/menu_catalog.csv`, `dbt/seeds/extras_catalog.csv` |
+| Libellés des moyens de paiement (la caisse les envoie en anglais) | `dbt/seeds/tender_labels.csv` |
 | Noms des objets Snowflake (`ATTABOY_DW`, `ATTABOY_WH`, rôles) | `sql/*.sql`, valeurs par défaut de `scripts/snowflake_utils.py` et `dbt/profiles.yml` |
 | Identifiants de la caisse et du compte Snowflake | `.env` (jamais versionné) |
 | Menu, horaires et affluence de la démo | constantes en tête de `scripts/demo_data.py` |

@@ -109,9 +109,10 @@ ORDER_TYPE_WEIGHTS = {
     "match": (0.20, 0.45, 0.35),  # soirée de match : on mange devant la télé
 }
 TENDERS = (
-    ("Carte de crédit", "com.clover.tender.credit_card", 0.55),
-    ("Débit", "com.clover.tender.debit_card", 0.30),
-    ("Comptant", "com.clover.tender.cash", 0.15),
+    # Libellés tels que Clover les envoie ; la traduction se fait dans dbt (seeds/tender_labels.csv).
+    ("Credit Card", "com.clover.tender.credit_card", 0.55),
+    ("Debit Card", "com.clover.tender.debit_card", 0.30),
+    ("Cash", "com.clover.tender.cash", 0.15),
 )
 TIP_PROBABILITY = {"Sur place": 0.85, "Livraison": 0.60, "À emporter": 0.35}
 # Une quarantaine de places et un comptoir à emporter : une cinquantaine de commandes par jour,

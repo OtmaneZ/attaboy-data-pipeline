@@ -1,0 +1,7 @@
+label_key,tender_label
+com.clover.tender.cash,Comptant
+com.clover.tender.credit_card,Carte de crédit
+com.clover.tender.debit_card,Débit
+com.clover.tender.check,Chèque
+com.clover.tender.external_gift_card,Carte-cadeau
+com.clover.tender.external_payment,Paiement externe

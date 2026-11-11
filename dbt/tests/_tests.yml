@@ -17,5 +17,7 @@ data_tests:
     description: Le rapport de caisse ne perd ni n'invente aucun paiement ni aucun remboursement.
   - name: assert_extras_have_a_cost
     description: Chaque extra vendu a un coût dans le catalogue des extras ; sinon la marge du produit est surévaluée (avertissement).
+  - name: assert_tenders_have_a_label
+    description: Chaque moyen de paiement utilisé a un libellé dans le fichier des libellés ; sinon il s'affiche tel que la caisse le nomme (avertissement).
   - name: assert_single_merchant
     description: Une base ne contient qu'un seul marchand, pour que données simulées et données réelles ne se mélangent jamais.

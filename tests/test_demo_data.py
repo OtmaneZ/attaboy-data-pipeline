@@ -89,7 +89,7 @@ def test_compatible_with_ingest_mapping() -> None:
     assert len(l_rows) == sum(len(_elements(o, "lineItems")) for o in orders)
     assert len(p_rows) == len(orders)
     assert all(r["created_time"] is not None for r in o_rows)
-    assert {r["tender_type"] for r in p_rows} == {"Carte de crédit", "Débit", "Comptant"}
+    assert {r["tender_type"] for r in p_rows} == {"Credit Card", "Debit Card", "Cash"}
 
 
 def test_summary_shape() -> None:

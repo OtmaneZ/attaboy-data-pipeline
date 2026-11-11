@@ -35,3 +35,15 @@ seeds:
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 0
+
+  - name: tender_labels
+    description: >
+      Libellé affiché pour chaque moyen de paiement de la caisse. Clover les nomme en anglais
+      et fournit une clé stable (labelKey) : c'est elle qui sert de référence.
+    columns:
+      - name: label_key
+        description: Clé du moyen de paiement dans la caisse (ex. com.clover.tender.cash).
+        data_tests: [not_null, unique]
+      - name: tender_label
+        description: Libellé affiché dans les rapports et le cockpit.
+        data_tests: [not_null]

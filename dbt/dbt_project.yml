@@ -44,6 +44,10 @@ seeds:
         product_id: varchar
         category: varchar
         estimated_unit_cost: decimal(18,2)
+    tender_labels:
+      +column_types:
+        label_key: varchar
+        tender_label: varchar
     extras_catalog:
       +column_types:
         modifier_id: varchar
