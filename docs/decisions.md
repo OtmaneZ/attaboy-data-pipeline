@@ -65,3 +65,5 @@ Chaque choix est dimensionné pour une pizzeria de quartier (voir [CONTEXT.md](.
 **Décision.** Le titre et la note d'une commande, qui peuvent contenir un nom ou un numéro de téléphone, ne sortent pas du schéma `RAW`. Les modèles n'exposent que des identifiants, des montants et des horodatages.
 
 **Pourquoi.** Loi 25 (Québec) : moins un renseignement personnel circule, moins il y a à protéger. Un inventaire complet des payloads est prévu dès les premières données réelles.
+
+**Qui lit `RAW`.** Le pipeline, et le rôle `ATTABOY_READONLY`, qui est celui du propriétaire : ce sont ses données, et il doit pouvoir remonter jusqu'au ticket d'origine. Ce rôle n'est donc pas à confier à un tiers. Un comptable ou un outil de BI n'a besoin que du schéma `ANALYTICS` : le jour où il en faut un, on lui crée un rôle limité à ce schéma.
