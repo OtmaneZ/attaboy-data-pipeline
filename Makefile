@@ -45,10 +45,13 @@ docs: ## Documentation dbt en un seul fichier (local/dbt_docs/static_index.html)
 captures: docs ## Captures d'écran du cockpit et du graphe dbt (docs/captures/)
 	$(PY) -m scripts.capture --dbt-docs local/dbt_docs/static_index.html
 
-daily: ## Run quotidien sur Snowflake : ingest Clover → dbt → cockpit (lit $(ATTABOY_HOME)/.env)
+# Fraîcheur : signale un ingest qui réussit sans rien charger depuis plus de 36 h. Elle n'arrête pas
+# le run : un restaurant fermé quelques jours doit garder son cockpit. Un ingest en échec, lui, arrête tout.
+daily: ## Run quotidien sur Snowflake : ingest Clover → fraîcheur → dbt → cockpit (lit $(ATTABOY_HOME)/.env)
 	set -a; source $(ATTABOY_HOME)/.env; set +a; \
 	export ATTABOY_DBT_TARGET=snowflake; \
 	$(PY) -m scripts.ingest_clover \
+	&& (cd dbt && ($(DBT) source freshness || echo "ATTENTION : aucune vente chargée récemment (voir ci-dessus)")) \
 	&& (cd dbt && $(DBT) build) \
 	&& $(PY) -m scripts.build_cockpit --out $(ATTABOY_HOME)/exports/cockpit.html
 
