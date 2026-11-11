@@ -113,14 +113,20 @@ TENDERS = (
     ("Comptant", "com.clover.tender.cash", 0.15),
 )
 TIP_PROBABILITY = {"Sur place": 0.85, "Livraison": 0.60, "À emporter": 0.35}
-BASE_ORDERS_PER_DAY = 80
+# Une quarantaine de places et un comptoir à emporter : une cinquantaine de commandes par jour,
+# soit environ 700 000 $ de ventes par an. Au-delà, ce n'est plus une pizzeria de quartier.
+BASE_ORDERS_PER_DAY = 46
 WEEKDAY_FACTOR = {0: 0.70, 1: 0.75, 2: 0.85, 3: 1.00, 4: 1.35, 5: 1.45, 6: 1.05}
 HOUR_WEIGHTS = {11: 4, 12: 10, 13: 7, 14: 3, 15: 2, 16: 3, 17: 8, 18: 11, 19: 9, 20: 5, 21: 3, 22: 2}
 OPENING_HOUR = 11
 # Saisonnalité : rue Saint-Jean, forte affluence touristique l'été, creux en janvier.
 MONTH_FACTOR = {1: 0.80, 2: 0.90, 3: 0.88, 4: 0.94, 5: 1.02, 6: 1.12, 7: 1.25, 8: 1.20, 9: 1.05, 10: 0.98, 11: 0.90, 12: 1.00}
-ANNUAL_GROWTH = 0.08  # le restaurant gagne de la clientèle d'une année à l'autre
+ANNUAL_GROWTH = 0.06  # le restaurant gagne de la clientèle d'une année à l'autre
 GROWTH_REFERENCE = date(2026, 1, 1)
+DELIVERY_GROWTH = 0.30  # la livraison progresse plus vite que la salle
+# Nouvelle carte de printemps : (date d'effet, préfixe des produits, hausse en cents).
+PRICE_INCREASES = ((date(2026, 4, 1), "PIZ", 100),)
+EXTRA_PROBABILITY = 0.22
 CLOSED_DAYS = {(12, 25), (1, 1)}  # (mois, jour)
 SNOWSTORM_RATE = 0.07  # part des jours de décembre à mars
 SNOWSTORM_FACTOR = 0.60
@@ -165,6 +171,18 @@ def growth_factor(day: date) -> float:
     return 1 + ANNUAL_GROWTH * (day - GROWTH_REFERENCE).days / 365
 
 
+def delivery_trend(day: date) -> float:
+    """Poids relatif de la livraison : il augmente d'une année à l'autre."""
+    return max(0.5, 1 + DELIVERY_GROWTH * (day - GROWTH_REFERENCE).days / 365)
+
+
+def price_on(item: MenuItem, day: date) -> int:
+    """Prix de vente du produit ce jour-là, hausses de prix comprises."""
+    return item.price_cents + sum(
+        delta for since, prefix, delta in PRICE_INCREASES if day >= since and item.item_id.startswith(prefix)
+    )
+
+
 def cents(value: Decimal) -> int:
     return int(value.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
@@ -204,22 +222,31 @@ class DemoGenerator:
             weights.append(w)
         return self.rng.choices(DRINKS, weights=weights)[0]
 
-    def _line(self, item: MenuItem, created_ms: int, with_extras: bool = False) -> dict[str, Any]:
+    def _pick_extras(self) -> list[tuple[str, str, int, float]]:
+        """Un ou deux extras différents, tirés selon leur popularité (l'extra fromage domine)."""
+        n = self.rng.choices([1, 2], weights=[80, 20])[0]
+        pool = list(EXTRAS)
+        picked = []
+        for _ in range(n):
+            extra = self.rng.choices(pool, weights=[weight for *_, weight in pool])[0]
+            pool.remove(extra)
+            picked.append(extra)
+        return picked
+
+    def _line(self, item: MenuItem, created_ms: int, day: date, with_extras: bool = False) -> dict[str, Any]:
         line: dict[str, Any] = {
             "id": self._id(),
             "name": item.name,
-            "price": item.price_cents,
+            "price": price_on(item, day),
             "item": {"id": item.item_id},
             "createdTime": created_ms,
             "modifiedTime": created_ms,
         }
-        if with_extras and self.rng.random() < 0.22:
-            n = self.rng.choices([1, 2], weights=[80, 20])[0]
-            picked = self.rng.sample(EXTRAS, k=n)
+        if with_extras and self.rng.random() < EXTRA_PROBABILITY:
             line["modifications"] = {
                 "elements": [
                     {"id": self._id(), "name": name, "amount": amount, "modifier": {"id": mod_id}}
-                    for mod_id, name, amount, _w in picked
+                    for mod_id, name, amount, _w in self._pick_extras()
                 ]
             }
         return line
@@ -263,21 +290,22 @@ class DemoGenerator:
     def order(self, created_local: datetime, seq: int, *, context: str = "normal") -> dict[str, Any]:
         created_ms = to_ms(created_local)
         day = created_local.date()
-        order_type = self.rng.choices(ORDER_TYPES, weights=ORDER_TYPE_WEIGHTS[context])[0]
+        on_site, takeout, delivery = ORDER_TYPE_WEIGHTS[context]
+        order_type = self.rng.choices(ORDER_TYPES, weights=(on_site, takeout, delivery * delivery_trend(day)))[0]
 
         lines: list[dict[str, Any]] = []
         n_pizzas = self.rng.choices([1, 2, 3, 4], weights=[50, 30, 15, 5])[0]
         for _ in range(n_pizzas):
-            lines.append(self._line(self._pick(PIZZAS, day), created_ms, with_extras=True))
+            lines.append(self._line(self._pick(PIZZAS, day), created_ms, day, with_extras=True))
         dine_in = order_type == "Sur place"
         pizza_ids = {line["item"]["id"] for line in lines}
         if self.rng.random() < (0.38 if dine_in else 0.24):
-            lines.append(self._line(self._pick(ENTREES), created_ms))
+            lines.append(self._line(self._pick(ENTREES), created_ms, day))
         for _ in range(n_pizzas):
             if self.rng.random() < (0.62 if dine_in else 0.40):
-                lines.append(self._line(self._pick_drink(pizza_ids, dine_in), created_ms))
+                lines.append(self._line(self._pick_drink(pizza_ids, dine_in), created_ms, day))
         if self.rng.random() < (0.24 if dine_in else 0.08):
-            lines.append(self._line(self._pick(DESSERTS), created_ms))
+            lines.append(self._line(self._pick(DESSERTS), created_ms, day))
 
         subtotal = sum(
             line["price"] + sum(m["amount"] for m in line.get("modifications", {}).get("elements", []))

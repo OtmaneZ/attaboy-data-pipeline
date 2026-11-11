@@ -20,7 +20,7 @@ Chaque choix est dimensionné pour une pizzeria de quartier (voir [CONTEXT.md](.
 
 **Décision.** Tous les marts sont en `table`, recalculés à chaque exécution.
 
-**Pourquoi.** Un an de ventes représente environ 30 000 commandes et 100 000 articles. La reconstruction complète prend quelques secondes ; l'incrémental ajouterait des cas limites (commandes modifiées, remboursements tardifs) sans rien faire gagner. À reconsidérer si une table dépasse quelques dizaines de millions de lignes.
+**Pourquoi.** Un an de ventes représente environ 18 000 commandes et 55 000 articles. La reconstruction complète prend quelques secondes ; l'incrémental ajouterait des cas limites (commandes modifiées, remboursements tardifs) sans rien faire gagner. À reconsidérer si une table dépasse quelques dizaines de millions de lignes.
 
 ## 4. Une seule définition des ventes, dans un seul modèle
 

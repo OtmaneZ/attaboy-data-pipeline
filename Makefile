@@ -6,7 +6,7 @@ DBT := $(abspath $(VENV))/bin/dbt
 
 # Fenêtre fixe pour la démo : mêmes chiffres et mêmes captures à chaque exécution.
 DEMO_END ?= 2026-10-31
-DEMO_DAYS ?= 365
+DEMO_DAYS ?= 730
 
 export DBT_PROFILES_DIR := $(abspath dbt)
 export ATTABOY_LOCAL_DB ?= $(abspath local/attaboy_demo.duckdb)
@@ -30,7 +30,7 @@ test: ## Tests unitaires Python (aucune connexion requise)
 demo: demo-data demo-build demo-cockpit ## Démo complète en local : données simulées → dbt → cockpit (aucun compte requis)
 	@echo "Cockpit prêt : cockpit/dist/index.html"
 
-demo-data: ## Génère un an de commandes simulées dans l'entrepôt local (DuckDB)
+demo-data: ## Génère deux ans de commandes simulées dans l'entrepôt local (DuckDB)
 	$(PY) -m scripts.demo_data --end $(DEMO_END) --days $(DEMO_DAYS) --local
 
 demo-build: ## Construit et teste les modèles dbt sur l'entrepôt local

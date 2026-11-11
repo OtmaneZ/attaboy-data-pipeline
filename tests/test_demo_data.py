@@ -8,9 +8,11 @@ from scripts.demo_data import (
     DEMO_MERCHANT_ID,
     LOCAL_TZ,
     OPENING_HOUR,
+    PIZZAS,
     DemoGenerator,
     closing_hour,
     load_orders,
+    price_on,
     summarize,
 )
 from scripts.ingest_clover import extract_from_orders
@@ -141,3 +143,40 @@ def test_summer_is_busier_than_january() -> None:
     january = len(gen.generate(date(2026, 1, 12), date(2026, 1, 25)))
     july = len(gen.generate(date(2026, 7, 20), date(2026, 8, 2)))
     assert july > january * 1.3
+
+
+def test_volume_stays_at_neighbourhood_scale() -> None:
+    # Une pizzeria de quartier : quelques dizaines de commandes par jour, pas une chaîne.
+    s = summarize(DemoGenerator(seed=7).generate(date(2026, 1, 5), date(2026, 3, 29)))
+    assert 30 < s["orders_per_day"]["mean"] < 70
+
+
+def test_extras_follow_their_popularity() -> None:
+    counts: dict[str, int] = {}
+    for o in DemoGenerator(seed=7).generate(START, END):
+        for li in _elements(o, "lineItems"):
+            names = [m["name"] for m in _elements(li, "modifications")]
+            assert len(names) == len(set(names))  # jamais deux fois le même extra sur un article
+            for name in names:
+                counts[name] = counts.get(name, 0) + 1
+    assert counts["Extra fromage"] > counts["Champignons"] > counts["Pâte sans gluten"]
+
+
+def test_spring_price_increase_only_applies_to_pizzas_from_its_date() -> None:
+    margherita = PIZZAS[0]
+    assert price_on(margherita, date(2026, 3, 31)) == margherita.price_cents
+    assert price_on(margherita, date(2026, 4, 1)) == margherita.price_cents + 100
+    sold = {
+        li["price"]
+        for o in DemoGenerator(seed=7).generate(date(2026, 4, 1), date(2026, 4, 7))
+        for li in _elements(o, "lineItems")
+        if li["item"]["id"] == margherita.item_id
+    }
+    assert sold == {margherita.price_cents + 100}
+
+
+def test_delivery_share_grows_from_one_year_to_the_next() -> None:
+    def share(start: date, end: date) -> float:
+        return summarize(DemoGenerator(seed=7).generate(start, end))["order_type_share"]["Livraison"]
+
+    assert share(date(2026, 9, 1), date(2026, 10, 31)) > share(date(2024, 9, 1), date(2024, 10, 31))
