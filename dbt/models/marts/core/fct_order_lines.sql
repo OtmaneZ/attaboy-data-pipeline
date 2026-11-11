@@ -33,8 +33,11 @@ select
             else l.gross_cents / 100.0 * o.net_sales / o.gross_sales
         end as decimal(18, 4)
     ) as net_sales,
-    -- Coût matière estimé de l'article (les extras ne sont pas chiffrés).
-    p.estimated_unit_cost as estimated_cost
+    -- Coût matière estimé : l'article + ses extras. La vente comprend les extras, le coût aussi.
+    -- Vide si l'article n'est pas dans le catalogue : on ne calcule pas de marge sur un coût inconnu.
+    p.estimated_unit_cost as item_estimated_cost,
+    l.extras_estimated_cost,
+    cast(p.estimated_unit_cost + l.extras_estimated_cost as decimal(18, 2)) as estimated_cost
 from lines l
 inner join orders o
     on l.order_id = o.order_id

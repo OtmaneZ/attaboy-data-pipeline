@@ -936,7 +936,7 @@ footer { color: var(--ink-3); font-size: 12.5px; padding-block: 0 32px; display:
         [["Vente brute", "Articles et extras, avant rabais, hors taxes."],
          ["Vente nette", "Vente brute − rabais − remboursements. Hors taxes et hors pourboires."],
          ["Panier moyen", "Ventes nettes divisées par le nombre de commandes payées."],
-         ["Marge unitaire", "Vente nette d'un article − son coût matière estimé."],
+         ["Marge unitaire", "Vente nette d'un article − son coût matière estimé, extras compris des deux côtés."],
          ["Vedette, Valeur sûre, Énigme, Poids mort", "Classement de la carte : populaire ou non, rentable ou non, au sein de sa catégorie."],
          ["Fréquence par rapport au hasard", "× 2 : la paire est commandée deux fois plus souvent que si les deux produits étaient choisis indépendamment."]]
           .map(([term, def]) => h("div", null, h("dt", { text: term }), h("dd", { text: def }))))));

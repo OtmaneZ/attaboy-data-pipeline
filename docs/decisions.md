@@ -52,6 +52,8 @@ Chaque choix est dimensionné pour une pizzeria de quartier (voir [CONTEXT.md](.
 
 **Pourquoi.** L'analyse de la carte (popularité × marge) a besoin d'un coût par produit. En attendant l'ingest des factures fournisseurs, un fichier de 20 lignes versionné suffit, et le propriétaire peut le relire. Un produit absent du fichier apparaît « Non classé » et un test le signale.
 
+**Les extras aussi.** La vente d'un article comprend ses extras payants ; son coût doit donc les comprendre, sinon la marge des produits souvent garnis est surévaluée. `dbt/seeds/extras_catalog.csv` donne le coût estimé de chaque extra. Un extra vendu sans coût déclenche un avertissement.
+
 ## 8. Un dépôt et une base par client, jamais de multi-tenant
 
 **Décision.** Chaque établissement a son dépôt, sa base, son `.env`. Les données simulées ne partagent jamais une base avec des données réelles.

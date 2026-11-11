@@ -15,5 +15,7 @@ data_tests:
     description: Pour chaque commande, paiements moins remboursements redonnent le montant encaissé, au cent près.
   - name: assert_cash_report_matches_payments
     description: Le rapport de caisse ne perd ni n'invente aucun paiement ni aucun remboursement.
+  - name: assert_extras_have_a_cost
+    description: Chaque extra vendu a un coût dans le catalogue des extras ; sinon la marge du produit est surévaluée (avertissement).
   - name: assert_single_merchant
     description: Une base ne contient qu'un seul marchand, pour que données simulées et données réelles ne se mélangent jamais.

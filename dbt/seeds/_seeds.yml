@@ -19,3 +19,19 @@ seeds:
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 0
+
+  - name: extras_catalog
+    description: >
+      Coût matière estimé de chaque extra payant (extra fromage, pâte sans gluten…), tenu à la main
+      avec le propriétaire. Sans lui, la vente d'un article compterait ses extras et son coût non.
+    columns:
+      - name: modifier_id
+        description: Identifiant de l'extra dans la caisse (clé).
+        data_tests: [not_null, unique]
+      - name: estimated_unit_cost
+        description: Coût matière estimé d'un extra.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0

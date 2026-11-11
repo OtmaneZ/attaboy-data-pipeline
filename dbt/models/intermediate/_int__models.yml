@@ -16,6 +16,28 @@ models:
         data_tests: [not_null, unique]
 
 unit_tests:
+  - name: extras_add_their_price_and_their_cost_to_the_line
+    description: >
+      Une pizza à 18 $ avec un extra fromage (2,50 $, coût 0,85 $) et un extra inconnu du catalogue (1 $) :
+      la vente brute de la ligne vaut 21,50 $, le coût des extras 0,85 $, et l'extra sans coût est signalé.
+    model: int_order_lines__priced
+    given:
+      - input: ref('stg_clover__line_items')
+        rows:
+          - {line_item_id: L1, order_id: A, product_id: PIZ, price_cents: 1800}
+          - {line_item_id: L2, order_id: A, product_id: BOI, price_cents: 300}
+      - input: ref('stg_clover__modifications')
+        rows:
+          - {modification_id: X1, line_item_id: L1, modifier_id: FROMAGE, amount_cents: 250}
+          - {modification_id: X2, line_item_id: L1, modifier_id: INCONNU, amount_cents: 100}
+      - input: ref('extras_catalog')
+        rows:
+          - {modifier_id: FROMAGE, estimated_unit_cost: 0.85}
+    expect:
+      rows:
+        - {line_item_id: L1, extras_count: 2, extras_cents: 350, gross_cents: 2150, extras_estimated_cost: 0.85, extras_without_cost: 1}
+        - {line_item_id: L2, extras_count: 0, extras_cents: 0, gross_cents: 300, extras_estimated_cost: 0, extras_without_cost: 0}
+
   - name: discount_given_as_percentage_is_converted_to_an_amount
     description: >
       Clover peut fournir un rabais sans montant, seulement un pourcentage.

@@ -177,8 +177,18 @@ models:
         description: Prix de l'article + extras, avant rabais.
       - name: net_sales
         description: Part de la vente nette de la commande revenant à cet article.
+      - name: item_estimated_cost
+        description: Coût matière estimé de l'article seul (seeds/menu_catalog.csv). Vide si l'article n'y figure pas.
+      - name: extras_estimated_cost
+        description: Coût matière estimé des extras de l'article (seeds/extras_catalog.csv).
       - name: estimated_cost
-        description: Coût matière estimé de l'article (catalogue).
+        description: Coût matière estimé de l'article et de ses extras, à comparer à sa vente nette (qui comprend aussi les extras).
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "estimated_cost = item_estimated_cost + extras_estimated_cost"
+          config:
+            where: "estimated_cost is not null"
 
   - name: fct_payments
     description: >
