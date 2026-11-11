@@ -59,6 +59,16 @@ Les choix et leurs raisons : [docs/decisions.md](docs/decisions.md).
 | `marts/core` | `dim_date`, `dim_product`, `fct_orders`, `fct_order_lines` | Modèle en étoile, une ligne par commande et par article |
 | `marts/reporting` | `rpt_sales_daily`, `rpt_sales_hourly`, `rpt_sales_by_channel_daily`, `rpt_sales_by_tender_daily`, `rpt_product_daily`, `rpt_menu_engineering`, `rpt_product_pairs`, `rpt_pipeline_runs` | Tables prêtes à lire : rapport quotidien, affluence, analyse de la carte, associations de produits |
 
+## Dans Snowflake
+
+Les mêmes modèles tournent dans Snowflake. Deux requêtes de la [visite guidée](sql/100_visite_guidee.sql), exécutées dans Snowsight sur les données simulées :
+
+| Le JSON brut de la caisse, déplié | La table que lit l'onglet Carte |
+|---|---|
+| ![Snowsight : articles et extras dépliés depuis le JSON Clover avec LATERAL FLATTEN — données simulées](docs/captures/snowsight-json-deplie.png) | ![Snowsight : classement des pizzas dans rpt_menu_engineering — données simulées](docs/captures/snowsight-analyse-carte.png) |
+
+À gauche, `LATERAL FLATTEN` sort les articles et leurs extras de la colonne `payload` (schéma `RAW`). À droite, `rpt_menu_engineering` (schéma `ANALYTICS`) donne pour chaque pizza son classement et la piste d'action associée.
+
 ## Qualité
 
 Chaque exécution lance 100 contrôles dbt ; un seul échec arrête le pipeline avant le cockpit.

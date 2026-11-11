@@ -24,3 +24,5 @@ local/
 cockpit/dist/
 # Graphe de la doc dbt locale, régénéré par `make captures` : le README montre docs/captures/dbt-lignee.png
 docs/captures/dbt-lineage.png
+# Formats pour les réseaux, produits par `make captures` : hors du dépôt
+docs/captures/social-*.png
