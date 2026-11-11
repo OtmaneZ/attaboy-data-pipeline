@@ -22,3 +22,5 @@ docs/private/
 dbt/.user.yml
 local/
 cockpit/dist/
+# Graphe de la doc dbt locale, régénéré par `make captures` : le README montre docs/captures/dbt-lignee.png
+docs/captures/dbt-lineage.png

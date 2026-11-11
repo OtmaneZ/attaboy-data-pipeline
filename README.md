@@ -4,7 +4,7 @@ Pipeline de données et cockpit des ventes d'**Attaboy, pizzeria de quartier** (
 
 ![Cockpit des ventes sur 12 mois — données simulées](docs/captures/cockpit-ventes-12-mois.png)
 
-> Toutes les captures de ce dépôt montrent des **données simulées**. Aucune donnée réelle du restaurant n'est versionnée.
+> **Où en est le projet** : démonstration complète sur des **données simulées**, en local et sur Snowflake. La mise en service avec les ventes réelles du restaurant est l'étape suivante (voir [État](#état)). Toutes les captures de ce dépôt montrent des données simulées ; aucune donnée réelle du restaurant n'est versionnée.
 
 ## Voir le projet tourner en une minute
 
@@ -50,7 +50,7 @@ Les choix et leurs raisons : [docs/decisions.md](docs/decisions.md).
 
 ## Modèle de données
 
-![Graphe de dépendances dbt](docs/captures/dbt-lineage.png)
+![Lignée des modèles dans dbt, des sources Clover au cockpit](docs/captures/dbt-lignee.png)
 
 | Couche | Modèles | Rôle |
 |---|---|---|
@@ -136,7 +136,7 @@ SELECT * FROM ATTABOY_DW.META.V_PIPELINE_LAST_RUN;   -- dernier run de chaque pi
 - [x] Ingest Clover → Snowflake (incrémental, idempotent)
 - [x] Modèles dbt : étoile des ventes, rapports, analyse de la carte
 - [x] Démo locale complète, CI, cockpit des ventes
-- [ ] Première exécution complète sur Snowflake (à ce jour : exécution sur DuckDB, SQL Snowflake compilé mais pas encore exécuté)
+- [x] Exécution complète sur Snowflake avec les données simulées : deux ans chargés, `dbt build` vert, mêmes chiffres qu'en local au dollar près
 - [ ] Ingest réel : élargir les champs demandés à l'API Clover (type de commande, rabais, remboursements, extras)
 - [ ] Ingest des factures fournisseurs PDF (Saputo, Colabor) → coûts matière réels à la place du catalogue estimé
 - [ ] Orchestration quotidienne (timer systemd, 05:00 heure de l'Est) et alertes Healthchecks.io
