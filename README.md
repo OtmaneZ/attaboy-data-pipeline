@@ -56,8 +56,8 @@ Les choix et leurs raisons : [docs/decisions.md](docs/decisions.md).
 |---|---|---|
 | `staging` | `stg_clover__orders`, `__line_items`, `__payments`, `__modifications`, `__discounts`, `__refunds` | Noms clairs, heure du restaurant, extras, rabais et remboursements dépliés depuis le JSON |
 | `intermediate` | `int_order_lines__priced`, `int_orders__amounts` | La définition unique des ventes : brut, rabais, taxes, pourboires, remboursements |
-| `marts/core` | `dim_date`, `dim_product`, `fct_orders`, `fct_order_lines` | Modèle en étoile, une ligne par commande et par article |
-| `marts/reporting` | `rpt_sales_daily`, `rpt_sales_hourly`, `rpt_sales_by_channel_daily`, `rpt_sales_by_tender_daily`, `rpt_product_daily`, `rpt_menu_engineering`, `rpt_product_pairs`, `rpt_pipeline_runs` | Tables prêtes à lire : rapport quotidien, affluence, analyse de la carte, associations de produits |
+| `marts/core` | `dim_date`, `dim_product`, `fct_orders`, `fct_order_lines`, `fct_payments`, `fct_refunds` | Modèle en étoile : une ligne par commande, par article, par paiement et par remboursement |
+| `marts/reporting` | `rpt_sales_daily`, `rpt_sales_hourly`, `rpt_sales_by_channel_daily`, `rpt_sales_by_tender_daily`, `rpt_payments_daily`, `rpt_product_daily`, `rpt_menu_engineering`, `rpt_product_pairs`, `rpt_pipeline_runs` | Tables prêtes à lire : rapport quotidien, affluence, caisse par moyen de paiement, analyse de la carte, associations de produits |
 
 ## Dans Snowflake
 
@@ -71,10 +71,10 @@ Les mêmes modèles tournent dans Snowflake. Deux requêtes de la [visite guidé
 
 ## Qualité
 
-Chaque exécution lance 100 contrôles dbt ; un seul échec arrête le pipeline avant le cockpit.
+Chaque exécution lance 136 contrôles dbt ; un seul échec arrête le pipeline avant le cockpit.
 
-- **Règles métier** : le total recalculé de chaque commande retombe sur celui de la caisse au cent près ; les paiements couvrent le total ; la somme des articles redonne la commande ; le rapport quotidien ne perd aucune vente.
-- **Tests unitaires dbt** : conversion d'un rabais en pourcentage, part hors taxes d'un remboursement, classement de la carte (méthode Kasavana-Smith) sur un cas d'école.
+- **Règles métier** : le total recalculé de chaque commande retombe sur celui de la caisse au cent près ; les paiements couvrent le total ; la somme des articles redonne la commande ; le rapport quotidien ne perd aucune vente ; paiements moins remboursements redonnent le montant encaissé de chaque commande.
+- **Tests unitaires dbt** : conversion d'un rabais en pourcentage, part hors taxes d'un remboursement, prix et coût des extras, commande passée après minuit, remboursement rendu un autre jour, classement de la carte (méthode Kasavana-Smith) sur un cas d'école.
 - **Structure** : clés uniques et non nulles, relations entre tables, valeurs autorisées, fraîcheur des sources.
 - **Isolement** : une base ne contient qu'un marchand ; données simulées et réelles ne se mélangent pas.
 
@@ -86,7 +86,7 @@ S'y ajoutent 52 tests unitaires Python (ingest, générateur, chargement local, 
 |---|---|
 | `sql/` | Provisioning Snowflake versionné : `000` infra et rôles, `001` tables RAW, `002` tables META, `100` visite guidée de l'entrepôt en dix requêtes, `999` suppression complète |
 | `scripts/` | `ingest_clover.py` (ingest), `demo_data.py` (commandes simulées), `local_warehouse.py` (entrepôt DuckDB), `build_cockpit.py` (cockpit), `capture.py` (captures d'écran) |
-| `dbt/` | Modèles, macros, catalogue du menu (`seeds/`), tests |
+| `dbt/` | Modèles, macros, catalogues du menu et des extras (`seeds/`), tests |
 | `cockpit/` | Gabarit du cockpit et réglages propres au client (`client.json`) |
 | `tests/` | Tests unitaires pytest, sans connexion |
 | `docs/` | [Décisions](docs/decisions.md), [coûts](docs/couts.md), [reprise pour un autre établissement](docs/nouveau-client.md), captures |
