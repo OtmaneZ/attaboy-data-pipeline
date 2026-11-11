@@ -18,7 +18,7 @@ select
     order_id,
     merchant_id,
     created_at_local as ordered_at,
-    cast(created_at_local as date) as order_date,
+    {{ business_date('created_at_local') }} as order_date,
     cast(extract(hour from created_at_local) as integer) as order_hour,
     order_type,
     tender_type,

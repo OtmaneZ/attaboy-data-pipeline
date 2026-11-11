@@ -78,7 +78,9 @@ models:
         description: Date et heure de la commande, heure du restaurant.
         data_tests: [not_null]
       - name: order_date
-        description: Jour de la commande.
+        description: >
+          Jour de vente. C'est le jour civil, sauf si la journée de vente commence plus tard
+          (var business_day_start_hour) : une commande de 1 h du matin compte alors pour la veille.
         data_tests:
           - not_null
           - relationships:
@@ -86,7 +88,7 @@ models:
                 to: ref('dim_date')
                 field: date_day
       - name: order_hour
-        description: Heure de la commande (0 à 23).
+        description: Heure d'horloge de la commande (0 à 23), quel que soit le jour de vente.
         data_tests:
           - dbt_utils.accepted_range:
               arguments:
@@ -136,7 +138,7 @@ models:
       - dbt_utils.expression_is_true:
           arguments:
             expression: "total_collected = net_sales + tax_amount + tip_amount"
-  
+
   - name: fct_order_lines
     description: >
       Articles vendus, un par ligne. La vente nette de chaque article tient compte
@@ -177,3 +179,33 @@ models:
         description: Part de la vente nette de la commande revenant à cet article.
       - name: estimated_cost
         description: Coût matière estimé de l'article (catalogue).
+
+unit_tests:
+  - name: late_night_order_belongs_to_the_previous_business_day
+    description: >
+      Avec une journée de vente qui commence à 4 h, une commande passée à 1 h 30 compte
+      pour la veille ; une commande de 4 h compte pour le jour même. L'heure affichée reste celle de l'horloge.
+    model: fct_orders
+    overrides:
+      vars:
+        business_day_start_hour: 4
+    given:
+      - input: ref('int_orders__amounts')
+        rows:
+          - {order_id: NUIT, created_at_local: "2026-10-18 01:30:00", payment_count: 1}
+          - {order_id: MATIN, created_at_local: "2026-10-18 04:00:00", payment_count: 1}
+    expect:
+      rows:
+        - {order_id: NUIT, order_date: "2026-10-17", order_hour: 1}
+        - {order_id: MATIN, order_date: "2026-10-18", order_hour: 4}
+
+  - name: order_date_is_the_calendar_day_by_default
+    description: Sans réglage particulier, le jour de vente est le jour civil.
+    model: fct_orders
+    given:
+      - input: ref('int_orders__amounts')
+        rows:
+          - {order_id: NUIT, created_at_local: "2026-10-18 01:30:00", payment_count: 1}
+    expect:
+      rows:
+        - {order_id: NUIT, order_date: "2026-10-18", order_hour: 1}

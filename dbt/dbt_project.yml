@@ -15,6 +15,7 @@ clean-targets: ["target", "dbt_packages"]
 # établissement, on change ces valeurs, pas les modèles.
 vars:
   local_timezone: America/Toronto   # même fuseau que Québec
+  business_day_start_hour: 0        # heure où commence la journée de vente ; 4 pour un établissement ouvert après minuit
   calendar_start: "2024-01-01"
   calendar_end: "2030-12-31"
   menu_window_days: 90              # fenêtre d'analyse de la carte et des associations
