@@ -5,13 +5,26 @@ models:
     description: Calendrier, une ligne par jour. Libellés en français.
     columns:
       - name: date_day
+        data_type: date
         description: Le jour (clé).
         data_tests: [not_null, unique]
+      - name: year_number
+        data_type: integer
+        description: Année.
+      - name: month_number
+        data_type: integer
+        description: Mois, de 1 à 12.
+      - name: month_name
+        data_type: varchar
+        description: Nom du mois en français.
       - name: month_start
+        data_type: date
         description: Premier jour du mois.
       - name: week_start
+        data_type: date
         description: Lundi de la semaine.
       - name: iso_weekday
+        data_type: integer
         description: 1 = lundi … 7 = dimanche.
         data_tests:
           - dbt_utils.accepted_range:
@@ -19,8 +32,10 @@ models:
                 min_value: 1
                 max_value: 7
       - name: weekday_name
+        data_type: varchar
         description: Nom du jour en français.
       - name: is_weekend
+        data_type: boolean
         description: Vrai le samedi et le dimanche.
 
   - name: dim_product
@@ -29,12 +44,15 @@ models:
       de seeds/menu_catalog.csv ; un produit absent du fichier est « Non classé ».
     columns:
       - name: product_id
+        data_type: varchar
         description: Identifiant Clover du produit (clé).
         data_tests: [not_null, unique]
       - name: product_name
+        data_type: varchar
         description: Nom le plus récent du produit dans la caisse.
         data_tests: [not_null]
       - name: category
+        data_type: varchar
         description: Catégorie du catalogue (seeds/menu_catalog.csv), ou « Non classé » si le produit n'y figure pas.
         data_tests:
           - not_null
@@ -46,10 +64,13 @@ models:
               config:
                 where: "category <> 'Non classé'"
       - name: list_price
+        data_type: decimal(18,2)
         description: Prix de vente le plus récent, hors taxes.
       - name: estimated_unit_cost
+        data_type: decimal(18,2)
         description: Coût matière estimé d'une unité. Vide si le produit n'est pas dans le catalogue.
       - name: is_in_catalog
+        data_type: boolean
         description: Faux si le produit manque dans seeds/menu_catalog.csv.
         data_tests:
           - accepted_values:
@@ -59,8 +80,10 @@ models:
               config:
                 severity: warn
       - name: first_sold_date
+        data_type: date
         description: Première vente observée.
       - name: last_sold_date
+        data_type: date
         description: Dernière vente observée.
 
   - name: fct_orders
@@ -69,15 +92,19 @@ models:
       des ventes : vente nette = vente brute − rabais − remboursements, hors taxes.
     columns:
       - name: order_id
+        data_type: varchar
         description: Identifiant Clover de la commande (clé).
         data_tests: [not_null, unique]
       - name: merchant_id
+        data_type: varchar
         description: Marchand Clover d'origine. Un seul par base (voir le test d'isolement).
         data_tests: [not_null]
       - name: ordered_at
+        data_type: timestamp
         description: Date et heure de la commande, heure du restaurant.
         data_tests: [not_null]
       - name: order_date
+        data_type: date
         description: >
           Jour de vente. C'est le jour civil, sauf si la journée de vente commence plus tard
           (var business_day_start_hour) : une commande de 1 h du matin compte alors pour la veille.
@@ -88,6 +115,7 @@ models:
                 to: ref('dim_date')
                 field: date_day
       - name: order_hour
+        data_type: integer
         description: Heure d'horloge de la commande (0 à 23), quel que soit le jour de vente.
         data_tests:
           - dbt_utils.accepted_range:
@@ -95,41 +123,61 @@ models:
                 min_value: 0
                 max_value: 23
       - name: order_type
+        data_type: varchar
         description: Sur place, À emporter ou Livraison.
       - name: tender_type
+        data_type: varchar
         description: Moyen de paiement ; « Mixte » si la commande en combine plusieurs.
+      - name: payment_state
+        data_type: varchar
+        description: État du paiement dans la caisse (PAID, REFUNDED…), en majuscules.
+      - name: currency
+        data_type: varchar
+        description: Devise de la commande, telle que la caisse la transmet.
       - name: item_count
+        data_type: bigint
         description: Nombre d'articles de la commande.
       - name: gross_sales
+        data_type: decimal(18,2)
         description: Articles et extras, avant rabais, hors taxes.
         data_tests:
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 0
       - name: discount_amount
+        data_type: decimal(18,2)
         description: Total des rabais de la commande.
         data_tests:
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 0
       - name: discount_name
+        data_type: varchar
         description: Nom du rabais appliqué, s'il y en a un.
       - name: refund_amount
+        data_type: decimal(18,2)
         description: Part hors taxes remboursée au client.
       - name: net_sales
+        data_type: decimal(18,2)
         description: Vente nette = vente brute − rabais − remboursements. Hors taxes, hors pourboires.
         data_tests: [not_null]
       - name: tax_amount
+        data_type: decimal(18,2)
         description: TPS et TVQ perçues, nettes des remboursements.
       - name: tip_amount
+        data_type: decimal(18,2)
         description: Pourboires, nets des remboursements.
       - name: total_collected
+        data_type: decimal(18,2)
         description: Montant réellement encaissé = vente nette + taxes + pourboires.
       - name: is_discounted
+        data_type: boolean
         description: Vrai si la commande a reçu un rabais.
       - name: is_refunded
+        data_type: boolean
         description: Vrai si la commande a été remboursée, en tout ou en partie.
       - name: minutes_to_payment
+        data_type: bigint
         description: Minutes entre la commande et le paiement (durée du repas pour le service sur place).
     data_tests:
       - dbt_utils.expression_is_true:
@@ -145,9 +193,11 @@ models:
       de sa part des rabais et des remboursements de la commande.
     columns:
       - name: line_item_id
+        data_type: varchar
         description: Identifiant Clover de la ligne (clé).
         data_tests: [not_null, unique]
       - name: order_id
+        data_type: varchar
         description: Commande à laquelle appartient l'article.
         data_tests:
           - not_null
@@ -155,7 +205,20 @@ models:
               arguments:
                 to: ref('fct_orders')
                 field: order_id
+      - name: merchant_id
+        data_type: varchar
+        description: Marchand Clover d'origine.
+      - name: order_date
+        data_type: date
+        description: Jour de la commande.
+      - name: order_hour
+        data_type: integer
+        description: Heure d'horloge de la commande (0 à 23).
+      - name: order_type
+        data_type: varchar
+        description: Sur place, À emporter ou Livraison.
       - name: product_id
+        data_type: varchar
         description: Produit vendu.
         data_tests:
           - not_null
@@ -163,25 +226,35 @@ models:
               arguments:
                 to: ref('dim_product')
                 field: product_id
-      - name: order_date
-        description: Jour de la commande.
+      - name: product_name
+        data_type: varchar
+        description: Nom le plus récent du produit (dim_product).
       - name: category
+        data_type: varchar
         description: Catégorie du produit.
       - name: unit_price
+        data_type: decimal(18,2)
         description: Prix de l'article sans les extras, hors taxes.
       - name: extras_count
+        data_type: bigint
         description: Nombre d'extras ajoutés à l'article.
       - name: extras_amount
+        data_type: decimal(18,2)
         description: Montant des extras.
       - name: gross_sales
+        data_type: decimal(18,2)
         description: Prix de l'article + extras, avant rabais.
       - name: net_sales
+        data_type: decimal(18,4)
         description: Part de la vente nette de la commande revenant à cet article.
       - name: item_estimated_cost
+        data_type: decimal(18,2)
         description: Coût matière estimé de l'article seul (seeds/menu_catalog.csv). Vide si l'article n'y figure pas.
       - name: extras_estimated_cost
+        data_type: decimal(18,2)
         description: Coût matière estimé des extras de l'article (seeds/extras_catalog.csv).
       - name: estimated_cost
+        data_type: decimal(18,2)
         description: Coût matière estimé de l'article et de ses extras, à comparer à sa vente nette (qui comprend aussi les extras).
     data_tests:
       - dbt_utils.expression_is_true:
@@ -196,9 +269,11 @@ models:
       de caisse ; une commande réglée en deux fois y apparaît deux fois, avec chaque moyen de paiement.
     columns:
       - name: payment_id
+        data_type: varchar
         description: Identifiant Clover du paiement (clé).
         data_tests: [not_null, unique]
       - name: order_id
+        data_type: varchar
         description: Commande réglée par ce paiement.
         data_tests:
           - not_null
@@ -206,10 +281,15 @@ models:
               arguments:
                 to: ref('fct_orders')
                 field: order_id
+      - name: merchant_id
+        data_type: varchar
+        description: Marchand Clover d'origine.
       - name: paid_at
+        data_type: timestamp
         description: Date et heure du paiement, heure du restaurant.
         data_tests: [not_null]
       - name: payment_date
+        data_type: date
         description: Jour de vente du paiement (même règle que order_date).
         data_tests:
           - not_null
@@ -218,15 +298,20 @@ models:
                 to: ref('dim_date')
                 field: date_day
       - name: tender_type
+        data_type: varchar
         description: Moyen de paiement de ce paiement précis (jamais « Mixte »).
         data_tests: [not_null]
       - name: amount
+        data_type: decimal(18,2)
         description: Montant payé, taxes comprises, hors pourboire.
       - name: tax_amount
+        data_type: decimal(18,2)
         description: Taxes comprises dans le montant.
       - name: tip_amount
+        data_type: decimal(18,2)
         description: Pourboire laissé avec ce paiement.
       - name: total_paid
+        data_type: decimal(18,2)
         description: Ce qui est réellement entré en caisse = montant + pourboire.
         data_tests:
           - dbt_utils.accepted_range:
@@ -239,9 +324,11 @@ models:
       le même remboursement réduit la vente de la commande d'origine, à la date de la commande.
     columns:
       - name: refund_id
+        data_type: varchar
         description: Identifiant Clover du remboursement (clé).
         data_tests: [not_null, unique]
       - name: order_id
+        data_type: varchar
         description: Commande remboursée.
         data_tests:
           - not_null
@@ -249,24 +336,35 @@ models:
               arguments:
                 to: ref('fct_orders')
                 field: order_id
+      - name: merchant_id
+        data_type: varchar
+        description: Marchand Clover d'origine.
       - name: payment_id
+        data_type: varchar
         description: Paiement d'origine, s'il est connu.
       - name: refunded_at
+        data_type: timestamp
         description: Date et heure du remboursement, heure du restaurant.
         data_tests: [not_null]
       - name: refund_date
+        data_type: date
         description: Jour de vente du remboursement.
         data_tests: [not_null]
       - name: tender_type
+        data_type: varchar
         description: Moyen de paiement d'origine ; « Inconnu » si le paiement n'est pas retrouvé.
         data_tests: [not_null]
       - name: amount
+        data_type: decimal(18,2)
         description: Montant remboursé, taxes comprises, hors pourboire.
       - name: tax_amount
+        data_type: decimal(18,2)
         description: Taxes comprises dans le montant remboursé.
       - name: tip_amount
+        data_type: decimal(18,2)
         description: Pourboire rendu.
       - name: total_refunded
+        data_type: decimal(18,2)
         description: Ce qui est réellement ressorti de la caisse = montant + pourboire.
 
 unit_tests:
