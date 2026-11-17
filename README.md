@@ -77,6 +77,8 @@ Les choix et leurs raisons : [docs/decisions.md](docs/decisions.md).
 | `marts/core` | `dim_date`, `dim_product`, `fct_orders`, `fct_order_lines`, `fct_payments`, `fct_refunds` | Modèle en étoile : une ligne par commande, par article, par paiement et par remboursement |
 | `marts/reporting` | `rpt_sales_daily`, `rpt_sales_hourly`, `rpt_sales_by_channel_daily`, `rpt_sales_by_tender_daily`, `rpt_payments_daily`, `rpt_product_daily`, `rpt_menu_engineering`, `rpt_product_pairs`, `rpt_pipeline_runs` | Tables prêtes à lire : rapport quotidien, affluence, caisse par moyen de paiement, analyse de la carte, associations de produits |
 
+Documentation dbt en ligne (chaque modèle, chaque colonne, la lignée et les contrôles), régénérée sur les données simulées à chaque push sur `main` : https://otmanez.github.io/attaboy-data-pipeline/
+
 ## Dans Snowflake
 
 Les mêmes modèles tournent dans Snowflake. Deux requêtes de la [visite guidée](sql/100_visite_guidee.sql), exécutées dans Snowsight sur les données simulées :
