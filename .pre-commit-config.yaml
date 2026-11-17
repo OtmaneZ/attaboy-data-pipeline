@@ -1,0 +1,29 @@
+# Contrôles avant chaque commit. Installation : .venv/bin/pre-commit install
+# Le lint SQL utilise le SQLFluff du projet (templater dbt), installé par `make install`.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: detect-private-key
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.5
+    hooks:
+      - id: ruff-check
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
+  - repo: local
+    hooks:
+      - id: sqlfluff-lint
+        name: sqlfluff-lint
+        entry: "env ATTABOY_LOCAL_DB=:memory: .venv/bin/sqlfluff lint"
+        language: system
+        files: ^dbt/(models|tests)/.*\.sql$

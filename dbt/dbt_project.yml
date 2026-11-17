@@ -35,6 +35,11 @@ models:
       +materialized: table
       +schema: analytics
       +tags: ["marts"]
+      # Contrat : noms et types des colonnes du modèle en étoile déclarés dans _core__models.yml.
+      # Une colonne renommée, retirée ou d'un autre type arrête le build avant d'écrire la table.
+      core:
+        +contract:
+          enforced: true
 
 seeds:
   attaboy:

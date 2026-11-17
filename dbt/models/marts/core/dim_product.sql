@@ -13,9 +13,12 @@ with lines as (
 
 latest as (
     -- Nom et prix les plus récents : un produit peut être renommé ou changer de prix.
-    select product_id, product_name, price_cents
+    select
+        product_id,
+        product_name,
+        price_cents
     from lines
-    qualify row_number() over (partition by product_id order by created_at_local desc, product_name) = 1
+    qualify row_number() over (partition by product_id order by created_at_local desc, product_name asc) = 1
 ),
 
 history as (

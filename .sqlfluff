@@ -1,0 +1,36 @@
+# Lint SQL des modèles et tests dbt (`make lint`). Le SQL est rendu par dbt sur la cible locale
+# (DuckDB), celle de la démo et de la CI : aucun compte ni secret requis.
+[sqlfluff]
+templater = dbt
+dialect = duckdb
+max_line_length = 120
+# L'ordre des colonnes suit la lecture métier (clés, montants, puis indicateurs dérivés) :
+# le réordonner changerait la forme des tables lues par le cockpit.
+exclude_rules = ST06
+
+[sqlfluff:templater:dbt]
+project_dir = dbt
+profiles_dir = dbt
+profile = attaboy
+target = local
+
+[sqlfluff:indentation]
+indent_unit = space
+tab_space_size = 4
+
+# Convention du dépôt : alias de table courts sans AS (`from line_items li`).
+[sqlfluff:rules:aliasing.table]
+aliasing = implicit
+
+# `support` est le terme consacré de l'analyse des associations, et le nom de colonne lu par le cockpit.
+[sqlfluff:rules:references.keywords]
+ignore_words = support
+
+[sqlfluff:rules:capitalisation.keywords]
+capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.functions]
+extended_capitalisation_policy = lower
+
+[sqlfluff:rules:layout.long_lines]
+ignore_comment_lines = true

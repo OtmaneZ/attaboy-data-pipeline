@@ -1,0 +1,60 @@
+name: Documentation dbt
+
+# Documentation dbt (modèles, colonnes, lignée, contrôles) publiée sur GitHub Pages.
+# Elle est générée sur l'entrepôt local de démonstration : données simulées, aucun secret.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Générer la documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Installer les dépendances
+        run: make install
+
+      # Le catalogue (types, colonnes) se lit dans les tables : il faut d'abord les construire.
+      - name: Pipeline de démonstration
+        run: make demo
+
+      # make docs = dbt docs generate --static sur la cible local : un seul fichier HTML.
+      - name: dbt docs generate (cible local)
+        run: |
+          make docs
+          mkdir -p local/site
+          cp local/dbt_docs/static_index.html local/site/index.html
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: local/site
+
+  deploy:
+    name: Publier sur GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

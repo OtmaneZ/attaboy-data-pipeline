@@ -1,5 +1,7 @@
 # Attaboy — de la caisse au tableau de bord
 
+[![CI](https://github.com/OtmaneZ/attaboy-data-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/OtmaneZ/attaboy-data-pipeline/actions/workflows/ci.yml)
+
 Pipeline de données et cockpit des ventes d'**Attaboy, pizzeria de quartier** (Québec, rue Saint-Jean). Les ventes de la caisse Clover sont chargées chaque jour dans Snowflake, transformées et testées avec dbt, puis publiées dans une page que le propriétaire ouvre sur son téléphone.
 
 ![Cockpit des ventes sur 12 mois — données simulées](docs/captures/cockpit-ventes-12-mois.png)
@@ -11,7 +13,7 @@ Pipeline de données et cockpit des ventes d'**Attaboy, pizzeria de quartier** (
 Aucun compte, aucun secret : la démo s'exécute en local sur DuckDB avec deux ans de commandes fictives.
 
 ```bash
-git clone git@github.com:OtmaneZ/attaboy-data-pipeline.git && cd attaboy-data-pipeline
+git clone https://github.com/OtmaneZ/attaboy-data-pipeline.git && cd attaboy-data-pipeline
 make install    # environnement Python + dbt
 make demo       # données simulées → dbt build (modèles + tests) → cockpit
 ```
@@ -32,12 +34,28 @@ Le cockpit est dans `cockpit/dist/index.html` : un seul fichier, à ouvrir dans 
 
 ## Architecture
 
-```
-API Clover ─► scripts/ingest_clover.py ─► RAW ──────► STAGING ───────► ANALYTICS ────► Cockpit HTML
-              incrémental, MERGE          JSON brut    vues dbt         tables dbt      scripts/build_cockpit.py
-              idempotent                  (VARIANT)    nettoyage,       dim_*, fct_*,   Power BI / Snowsight
-                                                       JSON déplié      rpt_*           (rôle lecture seule)
-                                          META : journal de chaque exécution
+```mermaid
+flowchart LR
+    API[("API Clover<br/>caisse")] --> ING["scripts/ingest_clover.py<br/>incrémental, MERGE idempotent"]
+    ING --> RAW["RAW<br/>JSON brut (VARIANT)"]
+    ING -.-> META["META<br/>journal de chaque run"]
+    RAW --> STG["STAGING<br/>stg_clover__*<br/>vues dbt"]
+    SD_TENDER[("seed tender_labels<br/>moyens de paiement")] --> STG
+    SD_EXTRAS[("seed extras_catalog<br/>coût des extras")] --> INT
+    SD_MENU[("seed menu_catalog<br/>menu")] --> CORE
+    STG --> INT["INTERMEDIATE<br/>int_order_lines__priced<br/>int_orders__amounts<br/>définition unique des ventes"]
+    STG --> CORE
+    INT --> CORE["MARTS core<br/>dim_date, dim_product<br/>fct_orders, fct_order_lines,<br/>fct_payments, fct_refunds"]
+    CORE --> RPT["MARTS reporting<br/>rpt_*"]
+    META --> RPT
+    RPT --> CKP["Cockpit HTML<br/>scripts/build_cockpit.py"]
+    RPT --> BI["Power BI / Snowsight<br/>rôle lecture seule"]
+    TESTS{{"dbt build<br/>140 contrôles"}} -.-> RAW
+    TESTS -.-> STG
+    TESTS -.-> INT
+    TESTS -.-> CORE
+    TESTS -.-> RPT
+    TESTS -. résultats .-> CKP
 ```
 
 - **Incrémental et idempotent** : chaque run relit les commandes modifiées depuis le début du dernier run réussi, puis fait un `MERGE` dédoublonné dans une transaction. Relancer un run ne crée jamais de doublon.
@@ -58,6 +76,8 @@ Les choix et leurs raisons : [docs/decisions.md](docs/decisions.md).
 | `intermediate` | `int_order_lines__priced`, `int_orders__amounts` | La définition unique des ventes : brut, rabais, taxes, pourboires, remboursements |
 | `marts/core` | `dim_date`, `dim_product`, `fct_orders`, `fct_order_lines`, `fct_payments`, `fct_refunds` | Modèle en étoile : une ligne par commande, par article, par paiement et par remboursement |
 | `marts/reporting` | `rpt_sales_daily`, `rpt_sales_hourly`, `rpt_sales_by_channel_daily`, `rpt_sales_by_tender_daily`, `rpt_payments_daily`, `rpt_product_daily`, `rpt_menu_engineering`, `rpt_product_pairs`, `rpt_pipeline_runs` | Tables prêtes à lire : rapport quotidien, affluence, caisse par moyen de paiement, analyse de la carte, associations de produits |
+
+Documentation dbt en ligne (chaque modèle, chaque colonne, la lignée et les contrôles), régénérée sur les données simulées à chaque push sur `main` : https://otmanez.github.io/attaboy-data-pipeline/
 
 ## Dans Snowflake
 
@@ -159,3 +179,10 @@ SELECT * FROM ATTABOY_DW.META.V_PIPELINE_LAST_RUN;   -- dernier run de chaque pi
 ## Licence
 
 [MIT](LICENSE). Le nom Attaboy est utilisé avec l'accord du propriétaire.
+
+## In English
+
+- **Problem**: a single-location neighbourhood pizzeria in Québec City has its sales locked in the Clover point of sale and no simple view of what sells, when, and at what margin.
+- **Stack**: Python ingestion (Clover API → Snowflake, idempotent `MERGE`), dbt (staging → star schema → reporting, 140 dbt checks and 65 Python tests), DuckDB for the local demo and CI, a static HTML dashboard.
+- **What it shows**: a small, fully tested pipeline where every sales figure reconciles to the cent across layers, with the same models running on DuckDB and Snowflake.
+- **Try it** (simulated data, no account needed): `make install && make demo`, then open `cockpit/dist/index.html`.

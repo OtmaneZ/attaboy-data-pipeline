@@ -35,5 +35,6 @@ select
     {{ cents_to_amount('net_cents + net_tax_cents + net_tip_cents') }} as total_collected,
     discount_cents > 0 as is_discounted,
     refund_count > 0 as is_refunded,
-    {{ dbt.datediff('created_at_local', 'paid_at_local', 'minute') }} as minutes_to_payment
+    -- Ligne longue une fois la macro développée par l'adaptateur, pas dans le source.
+    {{ dbt.datediff('created_at_local', 'paid_at_local', 'minute') }} as minutes_to_payment -- noqa: LT05
 from computed

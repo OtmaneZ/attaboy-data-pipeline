@@ -8,7 +8,9 @@ with refunds as (
 ),
 
 payments as (
-    select payment_id, tender_type
+    select
+        payment_id,
+        tender_type
     from {{ ref('stg_clover__payments') }}
 )
 

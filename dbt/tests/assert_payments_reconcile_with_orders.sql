@@ -1,13 +1,17 @@
 -- Pour chaque commande, paiements − remboursements doit redonner le montant encaissé
 -- de fct_orders (à 1 cent près) : la vue « caisse » et la vue « ventes » racontent la même histoire.
 with paid as (
-    select order_id, sum(total_paid) as total_paid
+    select
+        order_id,
+        sum(total_paid) as total_paid
     from {{ ref('fct_payments') }}
     group by order_id
 ),
 
 refunded as (
-    select order_id, sum(total_refunded) as total_refunded
+    select
+        order_id,
+        sum(total_refunded) as total_refunded
     from {{ ref('fct_refunds') }}
     group by order_id
 )

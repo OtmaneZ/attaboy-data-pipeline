@@ -13,7 +13,7 @@ export ATTABOY_LOCAL_DB ?= $(abspath local/attaboy_demo.duckdb)
 ATTABOY_HOME ?= /opt/clients/attaboy
 
 .DEFAULT_GOAL := help
-.PHONY: help install test demo demo-data demo-build demo-cockpit docs captures daily clean
+.PHONY: help install lint test demo demo-data demo-build demo-cockpit docs captures daily clean
 
 help: ## Affiche cette aide
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  make %-14s %s\n", $$1, $$2}'
@@ -23,6 +23,10 @@ install: ## Crée l'environnement Python et installe les dépendances (dont dbt_
 	$(PY) -m pip install -q --upgrade pip
 	$(PY) -m pip install -q -r requirements-dev.txt
 	cd dbt && ATTABOY_DBT_TARGET=local $(DBT) deps
+
+# Le lint rend le SQL avec dbt sur une base DuckDB en mémoire : il ne dépend ni de la démo ni d'un compte.
+lint: ## Lint SQL des modèles et tests dbt (SQLFluff, cible locale)
+	ATTABOY_LOCAL_DB=:memory: $(abspath $(VENV))/bin/sqlfluff lint dbt/models dbt/tests
 
 test: ## Tests unitaires Python (aucune connexion requise)
 	$(PY) -m pytest -q
