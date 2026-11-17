@@ -46,7 +46,7 @@ sources:
                   arguments:
                     to: source('clover', 'raw_clover_orders')
                     field: clover_order_id
-  
+
   - name: meta
     description: Journal d'exécution du pipeline.
     schema: meta
