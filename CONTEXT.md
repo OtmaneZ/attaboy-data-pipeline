@@ -15,8 +15,6 @@
 | Caisse | Clover (un seul marchand) |
 | Fournisseurs suivis | Saputo, Colabor (factures PDF) |
 
-Une fiche en ligne mentionne aussi le 1086, avenue Cartier : probablement une ancienne adresse ou une erreur d'annuaire, à confirmer avec le propriétaire.
-
 ## Le projet
 
 - Objectif : donner au restaurant des chiffres utiles (ventes du jour, coûts fournisseurs).
