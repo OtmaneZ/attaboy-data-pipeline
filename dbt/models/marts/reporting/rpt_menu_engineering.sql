@@ -42,7 +42,7 @@ scored as (
         quantity_sold * 1.0 / sum(quantity_sold) over (partition by category) as mix_share,
         0.7 / count(*) over (partition by category) as popularity_threshold,
         sum(contribution_margin) over (partition by category)
-            / sum(quantity_sold) over (partition by category) as category_unit_margin
+        / sum(quantity_sold) over (partition by category) as category_unit_margin
     from by_product
 ),
 

@@ -5,5 +5,6 @@ select
     total_cents,
     gross_cents - discount_cents + tax_cents as recomputed_cents
 from {{ ref('int_orders__amounts') }}
-where payment_count is not null
+where
+    payment_count is not null
     and abs(gross_cents - discount_cents + tax_cents - total_cents) > 1

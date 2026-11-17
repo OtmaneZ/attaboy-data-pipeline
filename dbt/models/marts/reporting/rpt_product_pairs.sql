@@ -40,8 +40,9 @@ pairs as (
         count(*) as orders_together
     from order_products a
     inner join order_products b
-        on a.order_id = b.order_id
-        and a.product_id < b.product_id
+        on
+            a.order_id = b.order_id
+            and a.product_id < b.product_id
     group by a.product_id, b.product_id
 )
 
